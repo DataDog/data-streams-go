@@ -102,6 +102,7 @@ func newConfig(opts ...StartOption) *config {
 			c.service = filepath.Base(os.Args[0])
 		}
 	}
+	fmt.Println("INFO: agent addr is", c.agentAddr)
 	c.loadAgentFeatures()
 	if c.statsd == nil {
 		// configure statsd client
@@ -201,6 +202,7 @@ func (c *config) loadAgentFeatures() {
 		// there is no agent; all features off
 		return
 	}
+	fmt.Println("INFO: agent addr is", c.agentAddr)
 	resp, err := c.httpClient.Get(fmt.Sprintf("http://%s/info", c.agentAddr))
 	if err != nil {
 		log.Printf("ERROR: Loading features: %v", err)
@@ -270,6 +272,7 @@ func WithService(name string) StartOption {
 // localhost:8126. It should contain both host and port.
 func WithAgentAddr(addr string) StartOption {
 	return func(c *config) {
+		fmt.Println("INFO: setting agent addr to", addr)
 		c.agentAddr = addr
 	}
 }
