@@ -77,30 +77,33 @@ type aggregatorStats struct {
 	flushedPayloads int64
 	flushedBuckets  int64
 	flushErrors     int64
+	dropped         int64
 }
 
 type aggregator struct {
-	in        chan statsPoint
-	buckets   map[int64]bucket
-	wg        sync.WaitGroup
-	stopped   uint64
-	stop      chan struct{} // closing this channel triggers shutdown
-	stats     aggregatorStats
-	transport *httpTransport
-	statsd    statsd.ClientInterface
-	env       string
-	service   string
+	in         chan statsPoint
+	buckets    map[int64]bucket
+	wg         sync.WaitGroup
+	stopped    uint64
+	stop       chan struct{} // closing this channel triggers shutdown
+	stats      aggregatorStats
+	transport  *httpTransport
+	statsd     statsd.ClientInterface
+	env        string
+	primaryTag string
+	service    string
 }
 
-func newAggregator(statsd statsd.ClientInterface, env, service, agentAddr string, httpClient *http.Client, site, apiKey string, agentLess bool) *aggregator {
+func newAggregator(statsd statsd.ClientInterface, env, primaryTag, service, agentAddr string, httpClient *http.Client, site, apiKey string, agentLess bool) *aggregator {
 	return &aggregator{
-		buckets:   make(map[int64]bucket),
-		in:        make(chan statsPoint, 10000),
-		stopped:   1,
-		statsd:    statsd,
-		env:       env,
-		service:   service,
-		transport: newHTTPTransport(agentAddr, site, apiKey, httpClient, agentLess),
+		buckets:    make(map[int64]bucket),
+		in:         make(chan statsPoint, 10000),
+		stopped:    1,
+		statsd:     statsd,
+		env:        env,
+		primaryTag: primaryTag,
+		service:    service,
+		transport:  newHTTPTransport(agentAddr, site, apiKey, httpClient, agentLess),
 	}
 }
 
@@ -207,9 +210,10 @@ func (a *aggregator) flushBucket(bucketStart int64) StatsBucket {
 func (a *aggregator) flush(now time.Time) StatsPayload {
 	nowNano := now.UnixNano()
 	sp := StatsPayload{
-		Service: a.service,
-		Env:     a.env,
-		Stats:   make([]StatsBucket, 0, len(a.buckets)),
+		Service:    a.service,
+		Env:        a.env,
+		PrimaryTag: a.primaryTag,
+		Stats:      make([]StatsBucket, 0, len(a.buckets)),
 	}
 	for ts := range a.buckets {
 		if ts > nowNano-bucketDuration.Nanoseconds() {
@@ -228,11 +232,4 @@ func (a *aggregator) sendToAgent(payload StatsPayload) {
 		atomic.AddInt64(&a.stats.flushErrors, 1)
 		log.Printf("WARN: Error sending data streams stats payload: %v", err)
 	}
-}
-
-func getService() string {
-	if aggregator := getGlobalAggregator(); aggregator != nil && aggregator.service != "" {
-		return aggregator.service
-	}
-	return defaultServiceName
 }

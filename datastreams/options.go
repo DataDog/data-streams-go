@@ -46,6 +46,8 @@ type config struct {
 	service string
 	// env contains the environment that this application will run under.
 	env string
+	// primaryTag contains the primary tag that this application will run under
+	primaryTag string
 	// agentAddr specifies the hostname and port of the agent where the traces
 	// are sent to.
 	agentAddr string
@@ -82,6 +84,9 @@ func newConfig(opts ...StartOption) *config {
 	}
 	if v := os.Getenv("DD_SERVICE"); v != "" {
 		c.service = v
+	}
+	if v := os.Getenv("DD_PRIMARY_TAG"); v != "" {
+		c.primaryTag = v
 	}
 	for _, fn := range opts {
 		fn(c)

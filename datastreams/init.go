@@ -37,7 +37,7 @@ func Start(opts ...StartOption) {
 		log.Print("ERROR: Agent does not support pipeline stats and pipeline stats aggregator launched in agent mode.")
 		return
 	}
-	p := newAggregator(cfg.statsd, cfg.env, cfg.service, cfg.agentAddr, cfg.httpClient, cfg.site, cfg.apiKey, cfg.agentLess)
+	p := newAggregator(cfg.statsd, cfg.env, cfg.primaryTag, cfg.service, cfg.agentAddr, cfg.httpClient, cfg.site, cfg.apiKey, cfg.agentLess)
 	p.Start()
 	setGlobalAggregator(p)
 }
