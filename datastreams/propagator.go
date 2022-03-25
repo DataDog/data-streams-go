@@ -44,6 +44,5 @@ func Decode(data []byte) (p Pathway, err error) {
 	}
 	p.pathwayStart = time.Unix(0, pathwayStart*int64(time.Millisecond))
 	p.edgeStart = time.Unix(0, edgeStart*int64(time.Millisecond))
-	p.service = getService()
 	return p, nil
 }

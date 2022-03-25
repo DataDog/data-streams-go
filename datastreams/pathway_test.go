@@ -14,8 +14,10 @@ import (
 
 func TestPathway(t *testing.T) {
 	aggregator := aggregator{
-		in:      make(chan statsPoint, 10),
-		service: "service-1",
+		in:         make(chan statsPoint, 10),
+		service:    "service-1",
+		env:        "env",
+		primaryTag: "d:1",
 	}
 	setGlobalAggregator(&aggregator)
 	defer setGlobalAggregator(nil)
@@ -25,15 +27,13 @@ func TestPathway(t *testing.T) {
 	p := newPathway(start)
 	p = p.setCheckpoint(middle, []string{"edge-1"})
 	p = p.setCheckpoint(end, []string{"edge-2"})
-	hash1 := pathwayHash(nodeHash("service-1", nil), 0)
-	hash2 := pathwayHash(nodeHash("service-1", []string{"edge-1"}), hash1)
-	hash3 := pathwayHash(nodeHash("service-1", []string{"edge-2"}), hash2)
+	hash1 := pathwayHash(nodeHash("service-1", "env", "d:1", nil), 0)
+	hash2 := pathwayHash(nodeHash("service-1", "env", "d:1", []string{"edge-1"}), hash1)
+	hash3 := pathwayHash(nodeHash("service-1", "env", "d:1", []string{"edge-2"}), hash2)
 	assert.Equal(t, Pathway{
 		hash:         hash3,
 		pathwayStart: start,
 		edgeStart:    end,
-		service:      "service-1",
-		edgeTags:     []string{"edge-2"},
 	}, p)
 	assert.Equal(t, statsPoint{
 		edgeTags:       nil,

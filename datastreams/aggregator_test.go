@@ -26,7 +26,7 @@ func buildSketch(values ...float64) []byte {
 }
 
 func TestAggregator(t *testing.T) {
-	p := newAggregator(nil, "env", "service", "agent-addr", nil, "datadoghq.com", "key", true)
+	p := newAggregator(nil, "env", "datacenter:us1.prod.dog", "service", "agent-addr", nil, "datadoghq.com", "key", true)
 	tp1 := time.Now()
 	tp2 := tp1.Add(time.Second * 40)
 	p.add(statsPoint{
@@ -63,8 +63,9 @@ func TestAggregator(t *testing.T) {
 	})
 	// flush at tp2 doesn't flush tp2 (current bucket)
 	assert.Equal(t, StatsPayload{
-		Env:     "env",
-		Service: "service",
+		Env:        "env",
+		Service:    "service",
+		PrimaryTag: "datacenter:us1.prod.dog",
 		Stats: []StatsBucket{{
 			Start:    uint64(alignTs(tp1.UnixNano(), bucketDuration.Nanoseconds())),
 			Duration: uint64(bucketDuration.Nanoseconds()),
@@ -82,8 +83,9 @@ func TestAggregator(t *testing.T) {
 		return sp.Stats[0].Stats[i].Hash < sp.Stats[0].Stats[j].Hash
 	})
 	assert.Equal(t, StatsPayload{
-		Env:     "env",
-		Service: "service",
+		Env:        "env",
+		Service:    "service",
+		PrimaryTag: "datacenter:us1.prod.dog",
 		Stats: []StatsBucket{{
 			Start:    uint64(alignTs(tp2.UnixNano(), bucketDuration.Nanoseconds())),
 			Duration: uint64(bucketDuration.Nanoseconds()),

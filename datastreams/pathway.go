@@ -8,9 +8,9 @@ package datastreams
 import (
 	"encoding/binary"
 	"hash/fnv"
-	"log"
 	"math/rand"
 	"sort"
+	"sync/atomic"
 	"time"
 )
 
@@ -29,10 +29,6 @@ type Pathway struct {
 	pathwayStart time.Time
 	// edgeStart is the start of the previous node.
 	edgeStart time.Time
-	// service is the service of the current node.
-	service string
-	// edgeTags are the tags set on the edge connecting this node, and its parent.
-	edgeTags []string
 }
 
 // Merge merges multiple pathways into one.
@@ -47,14 +43,16 @@ func Merge(pathways []Pathway) Pathway {
 	return pathways[n]
 }
 
-func nodeHash(service string, edgeTags []string) uint64 {
-	n := len(service)
+func nodeHash(service, env, primaryTag string, edgeTags []string) uint64 {
+	n := len(service) + len(env) + len(primaryTag)
 	sort.Strings(edgeTags)
 	for _, t := range edgeTags {
 		n += len(t)
 	}
 	b := make([]byte, 0, n)
 	b = append(b, service...)
+	b = append(b, env...)
+	b = append(b, primaryTag...)
 	for _, t := range edgeTags {
 		b = append(b, t...)
 	}
@@ -82,7 +80,6 @@ func newPathway(now time.Time) Pathway {
 		hash:         0,
 		pathwayStart: now,
 		edgeStart:    now,
-		service:      getService(),
 	}
 	return p.setCheckpoint(now, nil)
 }
@@ -93,12 +90,19 @@ func (p Pathway) SetCheckpoint(edgeTags ...string) Pathway {
 }
 
 func (p Pathway) setCheckpoint(now time.Time, edgeTags []string) Pathway {
+	aggr := getGlobalAggregator()
+	service := defaultServiceName
+	primaryTag := ""
+	env := ""
+	if aggr != nil {
+		service = aggr.service
+		primaryTag = aggr.primaryTag
+		env = aggr.env
+	}
 	child := Pathway{
-		hash:         pathwayHash(nodeHash(p.service, edgeTags), p.hash),
+		hash:         pathwayHash(nodeHash(service, env, primaryTag, edgeTags), p.hash),
 		pathwayStart: p.pathwayStart,
 		edgeStart:    now,
-		service:      p.service,
-		edgeTags:     edgeTags,
 	}
 	if aggregator := getGlobalAggregator(); aggregator != nil {
 		select {
@@ -111,7 +115,7 @@ func (p Pathway) setCheckpoint(now time.Time, edgeTags []string) Pathway {
 			edgeLatency:    now.Sub(p.edgeStart).Nanoseconds(),
 		}:
 		default:
-			log.Println("WARN: Aggregator input channel full, disregarding stats point.")
+			atomic.AddInt64(&aggregator.stats.dropped, 1)
 		}
 	}
 	return child
