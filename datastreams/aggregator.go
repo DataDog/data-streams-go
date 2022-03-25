@@ -184,6 +184,7 @@ func (a *aggregator) reportStats() {
 		a.statsd.Count("datadog.datastreams.aggregator.flushed_payloads", atomic.SwapInt64(&a.stats.flushedPayloads, 0), nil, 1)
 		a.statsd.Count("datadog.datastreams.aggregator.flushed_buckets", atomic.SwapInt64(&a.stats.flushedBuckets, 0), nil, 1)
 		a.statsd.Count("datadog.datastreams.aggregator.flush_errors", atomic.SwapInt64(&a.stats.flushErrors, 0), nil, 1)
+		a.statsd.Count("datadog.datastreams.dropped_payloads", atomic.SwapInt64(&a.stats.dropped, 0), nil, 1)
 	}
 }
 
