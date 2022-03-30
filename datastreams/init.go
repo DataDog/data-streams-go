@@ -47,6 +47,7 @@ func Stop() {
 	p := getGlobalAggregator()
 	if p == nil {
 		log.Print("ERROR: Stopped aggregator more than once.")
+		return
 	}
 	p.Stop()
 	setGlobalAggregator(nil)
