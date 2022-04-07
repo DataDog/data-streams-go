@@ -34,13 +34,13 @@ Right now, in Go, it's done manually.
 Then, the product measures latency between the created Checkpoints.
 We recommend putting the pipeline inside the context. So you will need:
 
-- `p, ok := datapipeline.PathwayFromContext(ctx)` to get the pipeline from the context (in order to propagate it in headers)
-- `_, ctx = datapipeline.SetCheckpoint(ctx, "type:kafka")` to set a checkpoint (if no pipeline exists in the context, it will create a new one).
-- `datapipeline.ContextWithPathway(ctx, p)` to put a datapipeline inside the context (after extracting it from the headers).
+- `p, ok := datastreams.PathwayFromContext(ctx)` to get the pipeline from the context (in order to propagate it in headers)
+- `_, ctx = datastreams.SetCheckpoint(ctx, "type:kafka")` to set a checkpoint (if no pipeline exists in the context, it will create a new one).
+- `datastreams.ContextWithPathway(ctx, p)` to put a datapipeline inside the context (after extracting it from the headers).
 
 Then, to put the data pipeline in headers, you will need:
 ```
-p, err := datapipeline.Decode(bytes)
+p, err := datastreams.Decode(bytes)
 and
 bytes := p.Encode()
 ``` 
