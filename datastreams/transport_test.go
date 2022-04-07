@@ -73,7 +73,7 @@ func TestHTTPTransport(t *testing.T) {
 
 	t.Run("with_agent", func(t *testing.T) {
 		fakeTransport := fakeTransport{}
-		transport := newHTTPTransport("agent-address", "datadoghq.com", "key", &http.Client{Transport: &fakeTransport}, false)
+		transport := newHTTPTransport("agent-address:8126", "datadoghq.com", "key", &http.Client{Transport: &fakeTransport}, false)
 		assert.Nil(t, transport.sendPipelineStats(&p))
 		assert.Len(t, fakeTransport.requests, 1)
 		r := fakeTransport.requests[0]

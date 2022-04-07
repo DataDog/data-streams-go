@@ -21,7 +21,11 @@ var (
 func setGlobalAggregator(a *aggregator) {
 	mu.Lock()
 	defer mu.Unlock()
+	old := activeAggregator
 	activeAggregator = a
+	if old != nil {
+		old.Stop()
+	}
 }
 
 func getGlobalAggregator() *aggregator {

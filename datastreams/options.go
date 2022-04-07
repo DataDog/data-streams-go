@@ -77,7 +77,7 @@ type StartOption func(*config)
 // and passed user opts.
 func newConfig(opts ...StartOption) *config {
 	c := new(config)
-	c.agentAddr = defaultAddress
+	c.agentAddr = getAgentAddr()
 	c.httpClient = defaultHTTPClient()
 	if v := os.Getenv("DD_ENV"); v != "" {
 		c.env = v
@@ -139,6 +139,19 @@ func newConfig(opts ...StartOption) *config {
 		}
 	}
 	return c
+}
+
+// getAgentAddr returns the agent address.
+func getAgentAddr() string {
+	host := defaultHostname
+	port := defaultPort
+	if v := os.Getenv("DD_AGENT_HOST"); v != "" {
+		host = v
+	}
+	if v := os.Getenv("DD_TRACE_AGENT_PORT"); v != "" {
+		port = v
+	}
+	return fmt.Sprintf("%s:%s", host, port)
 }
 
 // defaultHTTPClient returns the default http.Client to start the tracer with.
