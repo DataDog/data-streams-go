@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"os"
 	"runtime"
 	"strings"
 	"time"
@@ -67,37 +66,13 @@ func newHTTPTransport(addr string, site string, apiKey string, client *http.Clie
 		defaultHeaders["DD-API-KEY"] = apiKey
 		url = fmt.Sprintf("https://trace.agent.%s/api/v0.1/pipeline_stats", site)
 	} else {
-		url = fmt.Sprintf("http://%s/v0.1/pipeline_stats", resolveAddr(addr))
+		url = fmt.Sprintf("http://%s/v0.1/pipeline_stats", addr)
 	}
 	return &httpTransport{
 		url:     url,
 		client:  client,
 		headers: defaultHeaders,
 	}
-}
-
-// resolveAddr resolves the given agent address and fills in any missing host
-// and port using the defaults. Some environment variable settings will
-// take precedence over configuration.
-func resolveAddr(addr string) string {
-	host, port, err := net.SplitHostPort(addr)
-	if err != nil {
-		// no port in addr
-		host = addr
-	}
-	if host == "" {
-		host = defaultHostname
-	}
-	if port == "" {
-		port = defaultPort
-	}
-	if v := os.Getenv("DD_AGENT_HOST"); v != "" {
-		host = v
-	}
-	if v := os.Getenv("DD_TRACE_AGENT_PORT"); v != "" {
-		port = v
-	}
-	return fmt.Sprintf("%s:%s", host, port)
 }
 
 func (t *httpTransport) sendPipelineStats(p *StatsPayload) error {

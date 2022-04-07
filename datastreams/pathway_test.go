@@ -14,6 +14,7 @@ import (
 
 func TestPathway(t *testing.T) {
 	aggregator := aggregator{
+		stopped:    1,
 		in:         make(chan statsPoint, 10),
 		service:    "service-1",
 		env:        "env",
