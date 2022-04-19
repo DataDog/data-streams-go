@@ -17,13 +17,17 @@ type StatsPayload struct {
 	PrimaryTag string
 	// Stats holds all stats buckets computed within this payload.
 	Stats []StatsBucket
+	// TracerVersion is the version of the tracer
+	TracerVersion string
+	// Lang is the language of the tracer
+	Lang string
 }
 
 // StatsBucket specifies a set of stats computed over a duration.
 type StatsBucket struct {
-	// Start specifies the beginning of this bucket.
+	// Start specifies the beginning of this bucket in unix nanoseconds.
 	Start uint64
-	// Duration specifies the duration of this bucket.
+	// Duration specifies the duration of this bucket in nanoseconds.
 	Duration uint64
 	// Stats contains a set of statistics computed for the duration of this bucket.
 	Stats []StatsPoint
@@ -37,6 +41,7 @@ type StatsPoint struct {
 	Hash       uint64
 	ParentHash uint64
 	// These fields specify the stats for the above aggregation.
+	// those are distributions of latency in seconds.
 	PathwayLatency []byte
 	EdgeLatency    []byte
 }

@@ -18,6 +18,8 @@ import (
 	"github.com/DataDog/sketches-go/ddsketch/mapping"
 	"github.com/DataDog/sketches-go/ddsketch/store"
 	"github.com/golang/protobuf/proto"
+
+	"github.com/DataDog/data-streams-go/datastreams/version"
 )
 
 const (
@@ -211,10 +213,12 @@ func (a *aggregator) flushBucket(bucketStart int64) StatsBucket {
 func (a *aggregator) flush(now time.Time) StatsPayload {
 	nowNano := now.UnixNano()
 	sp := StatsPayload{
-		Service:    a.service,
-		Env:        a.env,
-		PrimaryTag: a.primaryTag,
-		Stats:      make([]StatsBucket, 0, len(a.buckets)),
+		Service:       a.service,
+		Env:           a.env,
+		PrimaryTag:    a.primaryTag,
+		Lang:          "go",
+		TracerVersion: version.Tag,
+		Stats:         make([]StatsBucket, 0, len(a.buckets)),
 	}
 	for ts := range a.buckets {
 		if ts > nowNano-bucketDuration.Nanoseconds() {

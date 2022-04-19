@@ -173,6 +173,18 @@ func (z *StatsPayload) DecodeMsg(dc *msgp.Reader) (err error) {
 					return
 				}
 			}
+		case "TracerVersion":
+			z.TracerVersion, err = dc.ReadString()
+			if err != nil {
+				err = msgp.WrapError(err, "TracerVersion")
+				return
+			}
+		case "Lang":
+			z.Lang, err = dc.ReadString()
+			if err != nil {
+				err = msgp.WrapError(err, "Lang")
+				return
+			}
 		default:
 			err = dc.Skip()
 			if err != nil {
@@ -186,9 +198,9 @@ func (z *StatsPayload) DecodeMsg(dc *msgp.Reader) (err error) {
 
 // EncodeMsg implements msgp.Encodable
 func (z *StatsPayload) EncodeMsg(en *msgp.Writer) (err error) {
-	// map header, size 4
+	// map header, size 6
 	// write "Env"
-	err = en.Append(0x84, 0xa3, 0x45, 0x6e, 0x76)
+	err = en.Append(0x86, 0xa3, 0x45, 0x6e, 0x76)
 	if err != nil {
 		return
 	}
@@ -234,6 +246,26 @@ func (z *StatsPayload) EncodeMsg(en *msgp.Writer) (err error) {
 			return
 		}
 	}
+	// write "TracerVersion"
+	err = en.Append(0xad, 0x54, 0x72, 0x61, 0x63, 0x65, 0x72, 0x56, 0x65, 0x72, 0x73, 0x69, 0x6f, 0x6e)
+	if err != nil {
+		return
+	}
+	err = en.WriteString(z.TracerVersion)
+	if err != nil {
+		err = msgp.WrapError(err, "TracerVersion")
+		return
+	}
+	// write "Lang"
+	err = en.Append(0xa4, 0x4c, 0x61, 0x6e, 0x67)
+	if err != nil {
+		return
+	}
+	err = en.WriteString(z.Lang)
+	if err != nil {
+		err = msgp.WrapError(err, "Lang")
+		return
+	}
 	return
 }
 
@@ -243,6 +275,7 @@ func (z *StatsPayload) Msgsize() (s int) {
 	for za0001 := range z.Stats {
 		s += z.Stats[za0001].Msgsize()
 	}
+	s += 14 + msgp.StringPrefixSize + len(z.TracerVersion) + 5 + msgp.StringPrefixSize + len(z.Lang)
 	return
 }
 
