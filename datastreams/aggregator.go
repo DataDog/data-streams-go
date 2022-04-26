@@ -234,6 +234,7 @@ func (a *aggregator) sendToAgent(payload StatsPayload) {
 	atomic.AddInt64(&a.stats.flushedPayloads, 1)
 	atomic.AddInt64(&a.stats.flushedBuckets, int64(len(payload.Stats)))
 	if err := a.transport.sendPipelineStats(&payload); err != nil {
+		log.Printf("WARNING: error flushing pipeline stats: %s", err.Error())
 		atomic.AddInt64(&a.stats.flushErrors, 1)
 	}
 }
