@@ -67,3 +67,7 @@ func MergeContexts(ctxs ...context.Context) context.Context {
 	}
 	return ContextWithPathway(ctxs[0], Merge(pathways))
 }
+
+func PropagatePathway() {
+
+}
