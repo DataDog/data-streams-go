@@ -14,15 +14,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func getHeaderValue(headers []kafka.Header, key string) []byte {
-	for _, header := range headers {
-		if header.Key == key {
-			return header.Value
-		}
-	}
-	return nil
-}
-
 func assertPathwayNotEqual(t *testing.T, p1 datastreams.Pathway, p2 datastreams.Pathway) {
 	decodedP1, _ := datastreams.Decode(p1.Encode())
 	decodedP2, _ := datastreams.Decode(p2.Encode())
@@ -57,7 +48,13 @@ func TestTraceKafkaProduce(t *testing.T) {
 		assertPathwayNotEqual(t, initialPathway, ctxPathway)
 
 		// The decoded pathway found in the kafka headers should be the same as the pathway found in the ctx.
-		headersPathway, _ := datastreams.Decode(getHeaderValue(msg.Headers, datastreams.PropagationKey))
+		encodedPathway := []byte{}
+		for _, header := range msg.Headers {
+			if header.Key == datastreams.PropagationKey {
+				encodedPathway = header.Value
+			}
+		}
+		headersPathway, _ := datastreams.Decode(encodedPathway)
 		assertPathwayEqual(t, ctxPathway, headersPathway)
 	})
 }
