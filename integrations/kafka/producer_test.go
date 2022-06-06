@@ -48,7 +48,7 @@ func TestTraceKafkaProduce(t *testing.T) {
 			Value:          []byte{},
 		}
 
-		ok := TraceKafkaProduce(&ctx, &msg)
+		ok, ctx, msg := TraceKafkaProduce(ctx, msg)
 		// Operation should be successful.
 		assert.Equal(t, ok, true)
 
