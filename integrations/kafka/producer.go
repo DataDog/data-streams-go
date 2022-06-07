@@ -15,11 +15,8 @@ import (
 
 // TraceKafkaProduce appends the pathway in the context to the kafka message header, and returns true if
 // it is successful.
-func TraceKafkaProduce(ctx context.Context, msg kafka.Message, edgeTags ...string) (bool, context.Context, kafka.Message) {
-	_, ctx = datastreams.SetCheckpoint(ctx, edgeTags...)
-	p, ok := datastreams.PathwayFromContext(ctx)
-	if ok {
-		msg.Headers = append(msg.Headers, kafka.Header{Key: datastreams.PropagationKey, Value: p.Encode()})
-	}
-	return ok, ctx, msg
+func TraceKafkaProduce(ctx context.Context, msg *kafka.Message) context.Context {
+	p, ctx := datastreams.SetCheckpoint(ctx, "type:internal")
+	msg.Headers = append(msg.Headers, kafka.Header{Key: datastreams.PropagationKey, Value: p.Encode()})
+	return ctx
 }

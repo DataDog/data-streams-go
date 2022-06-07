@@ -39,9 +39,7 @@ func TestTraceKafkaProduce(t *testing.T) {
 			Value:          []byte{},
 		}
 
-		ok, ctx, msg := TraceKafkaProduce(ctx, msg)
-		// Operation should be successful.
-		assert.Equal(t, ok, true)
+		ctx = TraceKafkaProduce(ctx, &msg)
 
 		// The old pathway shouldn't be equal to the new pathway found in the ctx because we created a new checkpoint.
 		ctxPathway, _ := datastreams.PathwayFromContext(ctx)
