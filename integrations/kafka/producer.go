@@ -13,8 +13,9 @@ import (
 	"github.com/DataDog/data-streams-go/datastreams"
 )
 
-// TraceKafkaProduce appends the pathway in the context to the kafka message header, and returns true if
-// it is successful.
+// TraceKafkaProduce appends the pathway in the context to the kafka message header. It returns the
+// newly updated context which records the updated pathway. Do not pass the resulting context from
+// this function to another call of TraceKafkaProduce, as it will modify the pathway incorrectly.
 func TraceKafkaProduce(ctx context.Context, msg *kafka.Message) context.Context {
 	p, ctx := datastreams.SetCheckpoint(ctx, "type:internal")
 	msg.Headers = append(msg.Headers, kafka.Header{Key: datastreams.PropagationKey, Value: p.Encode()})
