@@ -5,7 +5,7 @@ go 1.17
 replace github.com/DataDog/data-streams-go => ../../
 
 require (
-	github.com/DataDog/data-streams-go v0.0.0-00010101000000-000000000000
+	github.com/DataDog/data-streams-go v0.0.0-20220608142623-36f9e8daf21d
 	github.com/confluentinc/confluent-kafka-go v1.8.2
 	github.com/stretchr/testify v1.7.2
 )
