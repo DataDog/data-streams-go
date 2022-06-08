@@ -15,16 +15,20 @@ import (
 )
 
 func assertPathwayNotEqual(t *testing.T, p1 datastreams.Pathway, p2 datastreams.Pathway) {
-	decodedP1, _ := datastreams.Decode(p1.Encode())
-	decodedP2, _ := datastreams.Decode(p2.Encode())
+	decodedP1, err1 := datastreams.Decode(p1.Encode())
+	decodedP2, err2 := datastreams.Decode(p2.Encode())
 
+	assert.Nil(t, err1)
+	assert.Nil(t, err2)
 	assert.NotEqual(t, decodedP1, decodedP2)
 }
 
 func assertPathwayEqual(t *testing.T, p1 datastreams.Pathway, p2 datastreams.Pathway) {
-	decodedP1, _ := datastreams.Decode(p1.Encode())
-	decodedP2, _ := datastreams.Decode(p2.Encode())
+	decodedP1, err1 := datastreams.Decode(p1.Encode())
+	decodedP2, err2 := datastreams.Decode(p2.Encode())
 
+	assert.Nil(t, err1)
+	assert.Nil(t, err2)
 	assert.Equal(t, decodedP1, decodedP2)
 }
 
@@ -46,7 +50,7 @@ func TestTraceKafkaProduce(t *testing.T) {
 		assertPathwayNotEqual(t, initialPathway, ctxPathway)
 
 		// The decoded pathway found in the kafka headers should be the same as the pathway found in the ctx.
-		encodedPathway := []byte{}
+		var encodedPathway []byte
 		for _, header := range msg.Headers {
 			if header.Key == datastreams.PropagationKey {
 				encodedPathway = header.Value
