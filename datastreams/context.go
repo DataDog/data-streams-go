@@ -41,8 +41,7 @@ func SetCheckpoint(ctx context.Context, edgeTags ...string) (Pathway, context.Co
 	if ok {
 		p = p.SetCheckpoint(edgeTags...)
 	} else {
-		// skip the edge if there is nothing before this node.
-		p = NewPathway()
+		p = NewPathway(edgeTags...)
 	}
 	ctx = ContextWithPathway(ctx, p)
 	return p, ctx
