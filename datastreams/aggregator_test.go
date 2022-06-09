@@ -77,6 +77,8 @@ func TestAggregator(t *testing.T) {
 				EdgeLatency:    buildSketch(2),
 			}},
 		}},
+		TracerVersion: "v0.2",
+		Lang:          "go",
 	}, p.flush(tp2))
 	sp := p.flush(tp2.Add(bucketDuration).Add(time.Second))
 	sort.Slice(sp.Stats[0].Stats, func(i, j int) bool {
@@ -106,5 +108,7 @@ func TestAggregator(t *testing.T) {
 				},
 			},
 		}},
+		TracerVersion: "v0.2",
+		Lang:          "go",
 	}, sp)
 }
