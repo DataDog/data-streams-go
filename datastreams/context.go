@@ -38,10 +38,11 @@ func SetCheckpoint(ctx context.Context, edgeTags ...string) (Pathway, context.Co
 		ctx = context.Background()
 	}
 	p, ok := PathwayFromContext(ctx)
-	if !ok {
-		p = NewPathway()
+	if ok {
+		p = p.SetCheckpoint(edgeTags...)
+	} else {
+		p = NewPathway(edgeTags...)
 	}
-	p = p.SetCheckpoint(edgeTags...)
 	ctx = ContextWithPathway(ctx, p)
 	return p, ctx
 }

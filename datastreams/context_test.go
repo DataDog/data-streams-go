@@ -8,7 +8,6 @@ package datastreams
 import (
 	"context"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -24,28 +23,24 @@ func TestContext(t *testing.T) {
 		}
 		setGlobalAggregator(&aggregator)
 		defer setGlobalAggregator(nil)
-		start := time.Now()
-		hash1 := pathwayHash(nodeHash("service-1", "env", "d:1", nil), 0)
-		hash2 := pathwayHash(nodeHash("service-1", "env", "d:1", []string{"type:internal"}), hash1)
+		hash1 := pathwayHash(nodeHash("service-1", "env", "d:1", []string{"type:internal"}), 0)
+		hash2 := pathwayHash(nodeHash("service-1", "env", "d:1", []string{"type:kafka"}), hash1)
 
 		ctx := context.Background()
-		pathway := newPathway(start)
-
-		ctx = ContextWithPathway(ctx, pathway)
-		updatedPathway, _ := SetCheckpoint(ctx, "type:internal")
+		pathway, ctx := SetCheckpoint(ctx, "type:internal")
+		pathway, _ = SetCheckpoint(ctx, "type:kafka")
 
 		statsPt1 := <-aggregator.in
 		statsPt2 := <-aggregator.in
 
-		assert.Equal(t, []string(nil), statsPt1.edgeTags)
+		assert.Equal(t, []string{"type:internal"}, statsPt1.edgeTags)
 		assert.Equal(t, hash1, statsPt1.hash)
 		assert.Equal(t, uint64(0), statsPt1.parentHash)
-		assert.Equal(t, start.UnixNano(), statsPt1.timestamp)
 
-		assert.Equal(t, []string{"type:internal"}, statsPt2.edgeTags)
+		assert.Equal(t, []string{"type:kafka"}, statsPt2.edgeTags)
 		assert.Equal(t, hash2, statsPt2.hash)
 		assert.Equal(t, hash1, statsPt2.parentHash)
 
-		assert.Equal(t, statsPt2.hash, updatedPathway.hash)
+		assert.Equal(t, statsPt2.hash, pathway.hash)
 	})
 }

@@ -71,17 +71,17 @@ func pathwayHash(nodeHash, parentHash uint64) uint64 {
 }
 
 // NewPathway creates a new pathway.
-func NewPathway() Pathway {
-	return newPathway(time.Now())
+func NewPathway(edgeTags ...string) Pathway {
+	return newPathway(time.Now(), edgeTags...)
 }
 
-func newPathway(now time.Time) Pathway {
+func newPathway(now time.Time, edgeTags ...string) Pathway {
 	p := Pathway{
 		hash:         0,
 		pathwayStart: now,
 		edgeStart:    now,
 	}
-	return p.setCheckpoint(now, nil)
+	return p.setCheckpoint(now, edgeTags)
 }
 
 // SetCheckpoint sets a checkpoint on a pathway.
@@ -90,6 +90,7 @@ func (p Pathway) SetCheckpoint(edgeTags ...string) Pathway {
 }
 
 func (p Pathway) setCheckpoint(now time.Time, edgeTags []string) Pathway {
+
 	aggr := getGlobalAggregator()
 	service := defaultServiceName
 	primaryTag := ""
