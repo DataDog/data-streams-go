@@ -90,7 +90,6 @@ func (p Pathway) SetCheckpoint(edgeTags ...string) Pathway {
 }
 
 func (p Pathway) setCheckpoint(now time.Time, edgeTags []string) Pathway {
-
 	aggr := getGlobalAggregator()
 	service := defaultServiceName
 	primaryTag := ""
