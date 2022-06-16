@@ -49,7 +49,7 @@ func TestPathway(t *testing.T) {
 			edgeTags:       []string{"edge-1"},
 			hash:           hash2,
 			parentHash:     hash1,
-			timestamp:      middle.UnixNano(),
+			timestamp:      start.UnixNano(),
 			pathwayLatency: middle.Sub(start).Nanoseconds(),
 			edgeLatency:    middle.Sub(start).Nanoseconds(),
 		}, <-aggregator.in)
@@ -57,7 +57,7 @@ func TestPathway(t *testing.T) {
 			edgeTags:       []string{"edge-2"},
 			hash:           hash3,
 			parentHash:     hash2,
-			timestamp:      end.UnixNano(),
+			timestamp:      start.UnixNano(),
 			pathwayLatency: end.Sub(start).Nanoseconds(),
 			edgeLatency:    end.Sub(middle).Nanoseconds(),
 		}, <-aggregator.in)

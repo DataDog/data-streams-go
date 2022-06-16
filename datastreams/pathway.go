@@ -107,10 +107,13 @@ func (p Pathway) setCheckpoint(now time.Time, edgeTags []string) Pathway {
 	if aggregator := getGlobalAggregator(); aggregator != nil {
 		select {
 		case aggregator.in <- statsPoint{
-			edgeTags:       edgeTags,
-			parentHash:     p.hash,
-			hash:           child.hash,
-			timestamp:      now.UnixNano(),
+			edgeTags:   edgeTags,
+			parentHash: p.hash,
+			hash:       child.hash,
+			// use pathway start for the timestamp. That way, we can look for a given timestamp how many payloads left / arrived.
+			// the issue with that is that we will flush more points, since points will be distributed on many different
+			// intervals (especially when the application is behind)
+			timestamp:      p.pathwayStart.UnixNano(),
 			pathwayLatency: now.Sub(p.pathwayStart).Nanoseconds(),
 			edgeLatency:    now.Sub(p.edgeStart).Nanoseconds(),
 		}:
