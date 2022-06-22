@@ -28,21 +28,13 @@ Default trace agent URL is `localhost:8126`. If it's different for you, use the 
 datastreams.Start(datastreams.WithAgentAddr("notlocalhost:8126"))
 ```
 
-The instrumentation relies on passing headers inside the Kafka application.
-Right now, in Go, it's done manually.
+The instrumentation relies on creating checkpoints on a pathway and passing them via headers inside the Kafka application. The product measures latency between the created Checkpoints.
 
-Then, the product measures latency between the created Checkpoints.
-We recommend putting the pipeline inside the context. So you will need:
-
-- `p, ok := datastreams.PathwayFromContext(ctx)` to get the pipeline from the context (in order to propagate it in headers)
-- `_, ctx = datastreams.SetCheckpoint(ctx, "type:kafka")` to set a checkpoint (if no pipeline exists in the context, it will create a new one).
-- `datastreams.ContextWithPathway(ctx, p)` to put a datapipeline inside the context (after extracting it from the headers).
-
-Then, to put the data pipeline in headers, you will need:
+You can set a checkpoint and add the pathway into your Kafka message headers all in one go like this:
 ```
-p, err := datastreams.Decode(bytes)
-and
-bytes := p.Encode()
-``` 
+import (ddkafka "github.com/DataDog/data-streams-go/integrations/kafka")
+...
+ctx = ddkafka.TraceKafkaProduce(ctx, &kafkaMsg)
+```
 
-This interface is going to evolve to be easier to use.
+Note that the output `ctx` from `TraceKafkaProduce()` contains information about the updated pathway. If you are sending multiple Kafka messages in one go, do not reuse the output `ctx` across calls.
