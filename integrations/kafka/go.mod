@@ -7,7 +7,7 @@ replace github.com/DataDog/data-streams-go => ../../
 require (
 	github.com/DataDog/data-streams-go v0.0.0-20220608142623-36f9e8daf21d
 	github.com/confluentinc/confluent-kafka-go v1.8.2
-	github.com/stretchr/testify v1.7.2
+	github.com/stretchr/testify v1.7.1
 )
 
 require (
@@ -21,5 +21,5 @@ require (
 	github.com/tinylib/msgp v1.1.6 // indirect
 	golang.org/x/sys v0.0.0-20210124154548-22da62e12c0c // indirect
 	google.golang.org/protobuf v1.28.0 // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
+	gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c // indirect
 )
