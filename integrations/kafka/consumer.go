@@ -7,7 +7,6 @@ package kafka
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 
@@ -28,16 +27,12 @@ func TraceKafkaConsume(ctx context.Context, msg *kafka.Message, group string) co
 }
 
 func extractPipelineToContext(ctx context.Context, m *kafka.Message) context.Context {
-	print("extractPipelineToContext")
 	for _, header := range m.Headers {
 		if header.Key == datastreams.PropagationKey {
 			p, err := datastreams.Decode(header.Value)
 			if err != nil {
 				return ctx
 			}
-			print("==============extractPipelineToContext=====================\n")
-			print(fmt.Printf("%+v", p))
-			print("===================================\n")
 			return datastreams.ContextWithPathway(ctx, p)
 		}
 	}
