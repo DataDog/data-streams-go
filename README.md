@@ -3,7 +3,7 @@
 ## Introduction
 
 This product is meant to measure end to end latency in async pipelines.
-It's in an Alpha phase.
+It's in an Alpha phase. We currently support instrumentations of async pipelines using Kafka. Integrations with other systems will follow soon.
 
 ## Glossary
 
@@ -28,13 +28,36 @@ Default trace agent URL is `localhost:8126`. If it's different for you, use the 
 datastreams.Start(datastreams.WithAgentAddr("notlocalhost:8126"))
 ```
 
-The instrumentation relies on creating checkpoints on a pathway and passing them via headers inside the Kafka application. The product measures latency between the created Checkpoints.
+The instrumentation relies on creating checkpoints at various points in your data stream services, recording the pathway that messages take along the way. These pathways are stored within a Go Context, and are passed around via message headers.
+ 
+### Kafka
 
-You can set a checkpoint and add the pathway into your Kafka message headers all in one go like this:
+To instrument your data stream services that use Kafka queues, you can use the library provided under github.com/DataDog/data-streams-go/integrations/kafka.
+
+On the producer side, before sending out a Kafka message you can call `TraceKafkaProduce()`, which sets a new checkpoint onto any existing pathway in the provided Go Context (or creates a new pathway if none are found). It then adds the pathway into your Kafka message headers.
 ```
 import (ddkafka "github.com/DataDog/data-streams-go/integrations/kafka")
 ...
 ctx = ddkafka.TraceKafkaProduce(ctx, &kafkaMsg)
 ```
 
-Note that the output `ctx` from `TraceKafkaProduce()` contains information about the updated pathway. If you are sending multiple Kafka messages in one go, do not reuse the output `ctx` across calls.
+Similarly, on the consumer side, you can call `TraceKafkaConsume()`, which extracts the pathway that a particular Kafka message has gone through so far. It also sets a new checkpoint on the pathway to record the successful consumption of a message, and then finally it stores the pathway into the provided Go Context. 
+```
+import (ddkafka "github.com/DataDog/data-streams-go/integrations/kafka")
+...
+ctx = ddkafka.TraceKafkaConsume(ctx, &kafkaMsg, consumer_group)
+```
+
+Please note that the output `ctx` from `TraceKafkaProduce()` and `TraceKafkaConsume()` both contains information about the updated pathway. For `TraceKafkaProduce()`, if you are sending multiple Kafka messages in one go, do not reuse the output `ctx` across calls. And for `TraceKafkaConsume()`, if you are aggregating multiple messages to create a smaller number of payloads (i.e. fan-in situations), merge the resulting Contexts from `TraceKafkaConsume()` using `MergeContexts()` from `github.com/DataDog/data-streams-go`. This resulting Context can then be passed into the next `TraceKafkaProduce()` call.
+```
+import (
+    datastreams "github.com/DataDog/data-streams-go"
+    ddkafka "github.com/DataDog/data-streams-go/integrations/kafka"
+)
+...
+contexts := []Context{}
+for (...) {
+    contexts.append(contexts, ddkafka.TraceKafkaConsume(ctx, &kafkaMsg, consumer_group))
+}
+mergedContext = datastreams.MergeContexts(contexts...)
+```
