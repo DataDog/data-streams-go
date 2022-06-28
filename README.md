@@ -32,7 +32,7 @@ The instrumentation relies on creating checkpoints at various points in your dat
  
 ### Kafka
 
-To instrument your data stream services that use Kafka queues, you can use the library provided under github.com/DataDog/data-streams-go/integrations/kafka.
+To instrument your data stream services that use Kafka queues, you can use the library provided under `github.com/DataDog/data-streams-go/integrations/kafka`.
 
 On the producer side, before sending out a Kafka message you can call `TraceKafkaProduce()`, which sets a new checkpoint onto any existing pathway in the provided Go Context (or creates a new pathway if none are found). It then adds the pathway into your Kafka message headers.
 ```
@@ -48,16 +48,22 @@ import (ddkafka "github.com/DataDog/data-streams-go/integrations/kafka")
 ctx = ddkafka.TraceKafkaConsume(ctx, &kafkaMsg, consumer_group)
 ```
 
-Please note that the output `ctx` from `TraceKafkaProduce()` and `TraceKafkaConsume()` both contains information about the updated pathway. For `TraceKafkaProduce()`, if you are sending multiple Kafka messages in one go, do not reuse the output `ctx` across calls. And for `TraceKafkaConsume()`, if you are aggregating multiple messages to create a smaller number of payloads (i.e. fan-in situations), merge the resulting Contexts from `TraceKafkaConsume()` using `MergeContexts()` from `github.com/DataDog/data-streams-go`. This resulting Context can then be passed into the next `TraceKafkaProduce()` call.
+Please note that the output `ctx` from `TraceKafkaProduce()` and `TraceKafkaConsume()` both contains information about the updated pathway. For `TraceKafkaProduce()`, if you are sending multiple Kafka messages in one go (i.e. fan-out situations), do not reuse the output `ctx` across calls. And for `TraceKafkaConsume()`, if you are aggregating multiple messages to create a smaller number of payloads (i.e. fan-in situations), merge the resulting Contexts from `TraceKafkaConsume()` using `MergeContexts()` from `github.com/DataDog/data-streams-go`. This resulting Context can then be passed into the next `TraceKafkaProduce()` call.
 ```
 import (
     datastreams "github.com/DataDog/data-streams-go"
     ddkafka "github.com/DataDog/data-streams-go/integrations/kafka"
 )
+
 ...
+
 contexts := []Context{}
 for (...) {
-    contexts.append(contexts, ddkafka.TraceKafkaConsume(ctx, &kafkaMsg, consumer_group))
+    contexts.append(contexts, ddkafka.TraceKafkaConsume(ctx, &consumedMsg, consumer_group))
 }
 mergedContext = datastreams.MergeContexts(contexts...)
+
+...
+
+ddkafka.TraceKafkaProduce(mergedContext, &producedMsg)
 ```
