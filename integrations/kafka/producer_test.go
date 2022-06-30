@@ -11,26 +11,7 @@ import (
 
 	"github.com/DataDog/data-streams-go/datastreams"
 	"github.com/confluentinc/confluent-kafka-go/kafka"
-	"github.com/stretchr/testify/assert"
 )
-
-func assertPathwayNotEqual(t *testing.T, p1 datastreams.Pathway, p2 datastreams.Pathway) {
-	decodedP1, err1 := datastreams.Decode(p1.Encode())
-	decodedP2, err2 := datastreams.Decode(p2.Encode())
-
-	assert.Nil(t, err1)
-	assert.Nil(t, err2)
-	assert.NotEqual(t, decodedP1, decodedP2)
-}
-
-func assertPathwayEqual(t *testing.T, p1 datastreams.Pathway, p2 datastreams.Pathway) {
-	decodedP1, err1 := datastreams.Decode(p1.Encode())
-	decodedP2, err2 := datastreams.Decode(p2.Encode())
-
-	assert.Nil(t, err1)
-	assert.Nil(t, err2)
-	assert.Equal(t, decodedP1, decodedP2)
-}
 
 func TestTraceKafkaProduce(t *testing.T) {
 	t.Run("Checkpoint should be created and pathway should be propagated to kafka headers", func(t *testing.T) {

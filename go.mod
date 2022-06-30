@@ -6,7 +6,7 @@ replace github.com/DataDog/data-streams-go/integrations/kafka => ./integrations/
 
 require (
 	github.com/DataDog/datadog-go v4.8.3+incompatible
-	github.com/DataDog/sketches-go v1.4.1
+	github.com/DataDog/sketches-go v1.3.0
 	github.com/golang/protobuf v1.5.2
 	github.com/stretchr/testify v1.6.1
 	github.com/tinylib/msgp v1.1.6
