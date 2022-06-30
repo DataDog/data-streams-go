@@ -36,6 +36,8 @@ type statsPoint struct {
 	timestamp      int64
 	pathwayLatency int64
 	edgeLatency    int64
+	// "current" or "pathStart"
+	timestampType string
 }
 
 type statsGroup struct {
@@ -49,7 +51,7 @@ type statsGroup struct {
 
 type bucket map[uint64]statsGroup
 
-func (b bucket) export() []StatsPoint {
+func (b bucket) export(timestampType string) []StatsPoint {
 	stats := make([]StatsPoint, 0, len(b))
 	for _, s := range b {
 		pathwayLatency, err := proto.Marshal(s.pathwayLatency.ToProto())
@@ -69,6 +71,7 @@ func (b bucket) export() []StatsPoint {
 			EdgeTags:       s.edgeTags,
 			Hash:           s.hash,
 			ParentHash:     s.parentHash,
+			TimestampType:  timestampType,
 		})
 	}
 	return stats
@@ -83,29 +86,31 @@ type aggregatorStats struct {
 }
 
 type aggregator struct {
-	in         chan statsPoint
-	buckets    map[int64]bucket
-	wg         sync.WaitGroup
-	stopped    uint64
-	stop       chan struct{} // closing this channel triggers shutdown
-	stats      aggregatorStats
-	transport  *httpTransport
-	statsd     statsd.ClientInterface
-	env        string
-	primaryTag string
-	service    string
+	in                      chan statsPoint
+	timestampCurrentBuckets map[int64]bucket
+	timestampOriginBuckets  map[int64]bucket
+	wg                      sync.WaitGroup
+	stopped                 uint64
+	stop                    chan struct{} // closing this channel triggers shutdown
+	stats                   aggregatorStats
+	transport               *httpTransport
+	statsd                  statsd.ClientInterface
+	env                     string
+	primaryTag              string
+	service                 string
 }
 
 func newAggregator(statsd statsd.ClientInterface, env, primaryTag, service, agentAddr string, httpClient *http.Client, site, apiKey string, agentLess bool) *aggregator {
 	return &aggregator{
-		buckets:    make(map[int64]bucket),
-		in:         make(chan statsPoint, 10000),
-		stopped:    1,
-		statsd:     statsd,
-		env:        env,
-		primaryTag: primaryTag,
-		service:    service,
-		transport:  newHTTPTransport(agentAddr, site, apiKey, httpClient, agentLess),
+		timestampCurrentBuckets: make(map[int64]bucket),
+		timestampOriginBuckets:  make(map[int64]bucket),
+		in:                      make(chan statsPoint, 10000),
+		stopped:                 1,
+		statsd:                  statsd,
+		env:                     env,
+		primaryTag:              primaryTag,
+		service:                 service,
+		transport:               newHTTPTransport(agentAddr, site, apiKey, httpClient, agentLess),
 	}
 }
 
@@ -115,10 +120,16 @@ func alignTs(ts, bucketSize int64) int64 { return ts - ts%bucketSize }
 
 func (a *aggregator) add(point statsPoint) {
 	btime := alignTs(point.timestamp, bucketDuration.Nanoseconds())
-	b, ok := a.buckets[btime]
+	var buckets map[int64]bucket
+	if point.timestampType == "current" {
+		buckets = a.timestampCurrentBuckets
+	} else if point.timestampType == "pathStart" {
+		buckets = a.timestampOriginBuckets
+	}
+	b, ok := buckets[btime]
 	if !ok {
 		b = make(bucket)
-		a.buckets[btime] = b
+		buckets[btime] = b
 	}
 	group, ok := b[point.hash]
 	if !ok {
@@ -200,13 +211,23 @@ func (a *aggregator) runFlusher() {
 	}
 }
 
-func (a *aggregator) flushBucket(bucketStart int64) StatsBucket {
-	bucket := a.buckets[bucketStart]
-	delete(a.buckets, bucketStart)
+func (a *aggregator) flushTimestampCurrentBucket(bucketStart int64) StatsBucket {
+	timestampCurrentBucket := a.timestampCurrentBuckets[bucketStart]
+	delete(a.timestampCurrentBuckets, bucketStart)
 	return StatsBucket{
 		Start:    uint64(bucketStart),
 		Duration: uint64(bucketDuration.Nanoseconds()),
-		Stats:    bucket.export(),
+		Stats:    timestampCurrentBucket.export("current"),
+	}
+}
+
+func (a *aggregator) flushTimestampOriginBucket(bucketStart int64) StatsBucket {
+	timestampOriginBucket := a.timestampOriginBuckets[bucketStart]
+	delete(a.timestampOriginBuckets, bucketStart)
+	return StatsBucket{
+		Start:    uint64(bucketStart),
+		Duration: uint64(bucketDuration.Nanoseconds()),
+		Stats:    timestampOriginBucket.export("pathStart"),
 	}
 }
 
@@ -218,14 +239,21 @@ func (a *aggregator) flush(now time.Time) StatsPayload {
 		PrimaryTag:    a.primaryTag,
 		Lang:          "go",
 		TracerVersion: version.Tag,
-		Stats:         make([]StatsBucket, 0, len(a.buckets)),
+		Stats:         make([]StatsBucket, 0, len(a.timestampCurrentBuckets)+len(a.timestampOriginBuckets)),
 	}
-	for ts := range a.buckets {
+	for ts := range a.timestampCurrentBuckets {
 		if ts > nowNano-bucketDuration.Nanoseconds() {
-			// do not flush the current bucket
+			// do not flush the bucket at the current time
 			continue
 		}
-		sp.Stats = append(sp.Stats, a.flushBucket(ts))
+		sp.Stats = append(sp.Stats, a.flushTimestampCurrentBucket(ts))
+	}
+	for ts := range a.timestampOriginBuckets {
+		if ts > nowNano-bucketDuration.Nanoseconds() {
+			// do not flush the bucket at the current time
+			continue
+		}
+		sp.Stats = append(sp.Stats, a.flushTimestampOriginBucket(ts))
 	}
 	return sp
 }

@@ -10,7 +10,6 @@ import (
 	"hash/fnv"
 	"math/rand"
 	"sort"
-	"sync/atomic"
 	"time"
 )
 
@@ -105,17 +104,23 @@ func (p Pathway) setCheckpoint(now time.Time, edgeTags []string) Pathway {
 		edgeStart:    now,
 	}
 	if aggregator := getGlobalAggregator(); aggregator != nil {
-		select {
-		case aggregator.in <- statsPoint{
+		aggregator.in <- statsPoint{
 			edgeTags:       edgeTags,
 			parentHash:     p.hash,
 			hash:           child.hash,
 			timestamp:      now.UnixNano(),
 			pathwayLatency: now.Sub(p.pathwayStart).Nanoseconds(),
 			edgeLatency:    now.Sub(p.edgeStart).Nanoseconds(),
-		}:
-		default:
-			atomic.AddInt64(&aggregator.stats.dropped, 1)
+			timestampType:  "current",
+		}
+		aggregator.in <- statsPoint{
+			edgeTags:       edgeTags,
+			parentHash:     p.hash,
+			hash:           child.hash,
+			timestamp:      p.pathwayStart.UnixNano(),
+			pathwayLatency: now.Sub(p.pathwayStart).Nanoseconds(),
+			edgeLatency:    now.Sub(p.edgeStart).Nanoseconds(),
+			timestampType:  "pathStart",
 		}
 	}
 	return child
