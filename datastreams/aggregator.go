@@ -78,11 +78,14 @@ func (b bucket) export(timestampType string) []StatsPoint {
 }
 
 type aggregatorStats struct {
-	payloadsIn      int64
-	flushedPayloads int64
-	flushedBuckets  int64
-	flushErrors     int64
-	dropped         int64
+	payloadsIn             int64
+	flushedPayloads        int64
+	flushedBuckets         int64
+	flushErrors            int64
+	dropped                int64
+	timestampCurrentPoints int64
+	timestampOriginPoints  int64
+	timestampUnknownPoints int64
 }
 
 type aggregator struct {
@@ -123,8 +126,13 @@ func (a *aggregator) add(point statsPoint) {
 	var buckets map[int64]bucket
 	if point.timestampType == "current" {
 		buckets = a.timestampCurrentBuckets
+		atomic.AddInt64(&a.stats.timestampCurrentPoints, 1)
 	} else if point.timestampType == "pathStart" {
 		buckets = a.timestampOriginBuckets
+		atomic.AddInt64(&a.stats.timestampOriginPoints, 1)
+	} else {
+		log.Printf("ERROR: Unknown timestamp type: %s", point.timestampType)
+		atomic.AddInt64(&a.stats.timestampUnknownPoints, 1)
 	}
 	b, ok := buckets[btime]
 	if !ok {
@@ -198,6 +206,9 @@ func (a *aggregator) reportStats() {
 		a.statsd.Count("datadog.datastreams.aggregator.flushed_buckets", atomic.SwapInt64(&a.stats.flushedBuckets, 0), nil, 1)
 		a.statsd.Count("datadog.datastreams.aggregator.flush_errors", atomic.SwapInt64(&a.stats.flushErrors, 0), nil, 1)
 		a.statsd.Count("datadog.datastreams.dropped_payloads", atomic.SwapInt64(&a.stats.dropped, 0), nil, 1)
+		a.statsd.Count("datadog.datastreams.aggregator.timestamp_current_points", atomic.SwapInt64(&a.stats.timestampCurrentPoints, 0), nil, 1)
+		a.statsd.Count("datadog.datastreams.aggregator.timestamp_origin_points", atomic.SwapInt64(&a.stats.timestampOriginPoints, 0), nil, 1)
+		a.statsd.Count("datadog.datastreams.aggregator.timestamp_unknown_points", atomic.SwapInt64(&a.stats.timestampUnknownPoints, 0), nil, 1)
 	}
 }
 
@@ -211,23 +222,13 @@ func (a *aggregator) runFlusher() {
 	}
 }
 
-func (a *aggregator) flushTimestampCurrentBucket(bucketStart int64) StatsBucket {
-	timestampCurrentBucket := a.timestampCurrentBuckets[bucketStart]
-	delete(a.timestampCurrentBuckets, bucketStart)
+func (a *aggregator) flushBucket(buckets map[int64]bucket, bucketStart int64, timestampType string) StatsBucket {
+	bucket := buckets[bucketStart]
+	delete(buckets, bucketStart)
 	return StatsBucket{
 		Start:    uint64(bucketStart),
 		Duration: uint64(bucketDuration.Nanoseconds()),
-		Stats:    timestampCurrentBucket.export("current"),
-	}
-}
-
-func (a *aggregator) flushTimestampOriginBucket(bucketStart int64) StatsBucket {
-	timestampOriginBucket := a.timestampOriginBuckets[bucketStart]
-	delete(a.timestampOriginBuckets, bucketStart)
-	return StatsBucket{
-		Start:    uint64(bucketStart),
-		Duration: uint64(bucketDuration.Nanoseconds()),
-		Stats:    timestampOriginBucket.export("pathStart"),
+		Stats:    bucket.export(timestampType),
 	}
 }
 
@@ -246,14 +247,14 @@ func (a *aggregator) flush(now time.Time) StatsPayload {
 			// do not flush the bucket at the current time
 			continue
 		}
-		sp.Stats = append(sp.Stats, a.flushTimestampCurrentBucket(ts))
+		sp.Stats = append(sp.Stats, a.flushBucket(a.timestampCurrentBuckets, ts, "current"))
 	}
 	for ts := range a.timestampOriginBuckets {
 		if ts > nowNano-bucketDuration.Nanoseconds() {
 			// do not flush the bucket at the current time
 			continue
 		}
-		sp.Stats = append(sp.Stats, a.flushTimestampOriginBucket(ts))
+		sp.Stats = append(sp.Stats, a.flushBucket(a.timestampOriginBuckets, ts, "pathStart"))
 	}
 	return sp
 }
