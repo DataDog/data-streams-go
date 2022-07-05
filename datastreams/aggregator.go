@@ -143,10 +143,10 @@ func (a *aggregator) addToBuckets(point statsPoint, btime int64, buckets map[int
 
 func (a *aggregator) add(point statsPoint) {
 	currentBucketTime := alignTs(point.timestamp, bucketDuration.Nanoseconds())
-	a.addToBuckets(point, currentBucketTime, a.timestampCurrentBuckets)
+	a.addToBuckets(point, currentBucketTime, a.tsTypeCurrentBuckets)
 	originTimestamp := point.timestamp - point.pathwayLatency
 	originBucketTime := alignTs(originTimestamp, bucketDuration.Nanoseconds())
-	a.addToBuckets(point, originBucketTime, a.timestampOriginBuckets)
+	a.addToBuckets(point, originBucketTime, a.tsTypeOriginBuckets)
 }
 
 func (a *aggregator) run(tick <-chan time.Time) {
