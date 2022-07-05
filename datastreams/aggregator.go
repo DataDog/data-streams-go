@@ -36,7 +36,7 @@ type statsPoint struct {
 	timestamp      int64
 	pathwayLatency int64
 	edgeLatency    int64
-	// "current" or "pathStart"
+	// "current" or "origin"
 	timestampType string
 }
 
@@ -78,20 +78,14 @@ func (b bucket) export(timestampType string) []StatsPoint {
 }
 
 type aggregatorStats struct {
-	payloadsIn                int64
-	flushedPayloads           int64
-	flushedBuckets            int64
-	flushErrors               int64
-	dropped                   int64
-	timestampCurrentPoints    int64
-	timestampOriginPoints     int64
-	timestampUnknownPoints    int64
-	flushedCurrentBuckets     int64
-	flushedOriginBuckets      int64
-	flushedUnknownBuckets     int64
-	flushedOriginStatsPoints  int64
-	flushedCurrentStatsPoints int64
-	flushedUnknownStatsPoints int64
+	payloadsIn             int64
+	flushedPayloads        int64
+	flushedBuckets         int64
+	flushErrors            int64
+	dropped                int64
+	timestampCurrentPoints int64
+	timestampOriginPoints  int64
+	timestampUnknownPoints int64
 }
 
 type aggregator struct {
@@ -133,7 +127,7 @@ func (a *aggregator) add(point statsPoint) {
 	if point.timestampType == "current" {
 		buckets = a.timestampCurrentBuckets
 		atomic.AddInt64(&a.stats.timestampCurrentPoints, 1)
-	} else if point.timestampType == "pathStart" {
+	} else if point.timestampType == "origin" {
 		buckets = a.timestampOriginBuckets
 		atomic.AddInt64(&a.stats.timestampOriginPoints, 1)
 	} else {
@@ -236,13 +230,6 @@ func (a *aggregator) runFlusher() {
 }
 
 func (a *aggregator) flushBucket(buckets map[int64]bucket, bucketStart int64, timestampType string) StatsBucket {
-	if timestampType == "pathStart" {
-		atomic.AddInt64(&a.stats.flushedOriginBuckets, 1)
-	} else if timestampType == "current" {
-		atomic.AddInt64(&a.stats.flushedCurrentBuckets, 1)
-	} else {
-		atomic.AddInt64(&a.stats.flushedUnknownBuckets, 1)
-	}
 	bucket := buckets[bucketStart]
 	delete(buckets, bucketStart)
 	outStatsPoint := bucket.export(timestampType)
@@ -275,24 +262,12 @@ func (a *aggregator) flush(now time.Time) StatsPayload {
 			// do not flush the bucket at the current time
 			continue
 		}
-		sp.Stats = append(sp.Stats, a.flushBucket(a.timestampOriginBuckets, ts, "pathStart"))
+		sp.Stats = append(sp.Stats, a.flushBucket(a.timestampOriginBuckets, ts, "origin"))
 	}
 	return sp
 }
 
 func (a *aggregator) sendToAgent(payload StatsPayload) {
-	for _, stats := range payload.Stats {
-		for _, point := range stats.Stats {
-			timestampType := point.TimestampType
-			if timestampType == "pathStart" {
-				atomic.AddInt64(&a.stats.flushedOriginStatsPoints, 1)
-			} else if timestampType == "current" {
-				atomic.AddInt64(&a.stats.flushedCurrentStatsPoints, 1)
-			} else {
-				atomic.AddInt64(&a.stats.flushedUnknownStatsPoints, 1)
-			}
-		}
-	}
 	atomic.AddInt64(&a.stats.flushedPayloads, 1)
 	atomic.AddInt64(&a.stats.flushedBuckets, int64(len(payload.Stats)))
 	if err := a.transport.sendPipelineStats(&payload); err != nil {
