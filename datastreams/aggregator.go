@@ -247,11 +247,11 @@ func (a *aggregator) flushBucket(buckets map[int64]bucket, bucketStart int64, ti
 	delete(buckets, bucketStart)
 	outStatsPoint := bucket.export(timestampType)
 	if timestampType == "pathStart" {
-		atomic.AddInt64(&a.stats.flushedOriginStatsPoints, len(outStatsPoint))
+		atomic.AddInt64(&a.stats.flushedOriginStatsPoints, int64(len(outStatsPoint)))
 	} else if timestampType == "current" {
-		atomic.AddInt64(&a.stats.flushedCurrentStatsPoints, len(outStatsPoint))
+		atomic.AddInt64(&a.stats.flushedCurrentStatsPoints, int64(len(outStatsPoint)))
 	} else {
-		atomic.AddInt64(&a.stats.flushedUnknownStatsPoints, len(outStatsPoint))
+		atomic.AddInt64(&a.stats.flushedUnknownStatsPoints, int64(len(outStatsPoint)))
 	}
 	return StatsBucket{
 		Start:    uint64(bucketStart),
