@@ -33,6 +33,13 @@ type StatsBucket struct {
 	Stats []StatsPoint
 }
 
+type TimestampType string
+
+const (
+	TIMESTAMP_TYPE_CURRENT TimestampType = "current"
+	TIMESTAMP_TYPE_ORIGIN  TimestampType = "origin"
+)
+
 // StatsPoint contains a set of statistics grouped under various aggregation keys.
 type StatsPoint struct {
 	// These fields indicate the properties under which the stats were aggregated.
@@ -44,4 +51,5 @@ type StatsPoint struct {
 	// those are distributions of latency in seconds.
 	PathwayLatency []byte
 	EdgeLatency    []byte
+	TimestampType  TimestampType
 }

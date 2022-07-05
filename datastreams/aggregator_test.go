@@ -28,7 +28,10 @@ func buildSketch(values ...float64) []byte {
 func TestAggregator(t *testing.T) {
 	p := newAggregator(nil, "env", "datacenter:us1.prod.dog", "service", "agent-addr", nil, "datadoghq.com", "key", true)
 	tp1 := time.Now()
-	tp2 := tp1.Add(time.Second * 40)
+	// Set tp2 to be some 40 seconds after the tp1, but also account for bucket alignments,
+	// otherwise the possible StatsPayload would change depending on when the test is run.
+	tp2 := time.Unix(0, alignTs(tp1.Add(time.Second*40).UnixNano(), bucketDuration.Nanoseconds())).Add(6 * time.Second)
+
 	p.add(statsPoint{
 		edgeTags:       []string{"edge-1"},
 		hash:           2,
@@ -61,25 +64,41 @@ func TestAggregator(t *testing.T) {
 		pathwayLatency: (5 * time.Second).Nanoseconds(),
 		edgeLatency:    (2 * time.Second).Nanoseconds(),
 	})
-	// flush at tp2 doesn't flush tp2 (current bucket)
+	// flush at tp2 doesn't flush points at tp2 (current bucket)
 	assert.Equal(t, StatsPayload{
 		Env:        "env",
 		Service:    "service",
 		PrimaryTag: "datacenter:us1.prod.dog",
-		Stats: []StatsBucket{{
-			Start:    uint64(alignTs(tp1.UnixNano(), bucketDuration.Nanoseconds())),
-			Duration: uint64(bucketDuration.Nanoseconds()),
-			Stats: []StatsPoint{{
-				EdgeTags:       []string{"edge-1"},
-				Hash:           2,
-				ParentHash:     1,
-				PathwayLatency: buildSketch(5),
-				EdgeLatency:    buildSketch(2),
-			}},
-		}},
+		Stats: []StatsBucket{
+			{
+				Start:    uint64(alignTs(tp1.UnixNano(), bucketDuration.Nanoseconds())),
+				Duration: uint64(bucketDuration.Nanoseconds()),
+				Stats: []StatsPoint{{
+					EdgeTags:       []string{"edge-1"},
+					Hash:           2,
+					ParentHash:     1,
+					PathwayLatency: buildSketch(5),
+					EdgeLatency:    buildSketch(2),
+					TimestampType:  "current",
+				}},
+			},
+			{
+				Start:    uint64(alignTs(tp1.UnixNano()-(5*time.Second).Nanoseconds(), bucketDuration.Nanoseconds())),
+				Duration: uint64(bucketDuration.Nanoseconds()),
+				Stats: []StatsPoint{{
+					EdgeTags:       []string{"edge-1"},
+					Hash:           2,
+					ParentHash:     1,
+					PathwayLatency: buildSketch(5),
+					EdgeLatency:    buildSketch(2),
+					TimestampType:  "origin",
+				}},
+			},
+		},
 		TracerVersion: "v0.2",
 		Lang:          "go",
 	}, p.flush(tp2))
+
 	sp := p.flush(tp2.Add(bucketDuration).Add(time.Second))
 	sort.Slice(sp.Stats[0].Stats, func(i, j int) bool {
 		return sp.Stats[0].Stats[i].Hash < sp.Stats[0].Stats[j].Hash
@@ -88,26 +107,52 @@ func TestAggregator(t *testing.T) {
 		Env:        "env",
 		Service:    "service",
 		PrimaryTag: "datacenter:us1.prod.dog",
-		Stats: []StatsBucket{{
-			Start:    uint64(alignTs(tp2.UnixNano(), bucketDuration.Nanoseconds())),
-			Duration: uint64(bucketDuration.Nanoseconds()),
-			Stats: []StatsPoint{
-				{
-					EdgeTags:       []string{"edge-1"},
-					Hash:           2,
-					ParentHash:     1,
-					PathwayLatency: buildSketch(1, 5),
-					EdgeLatency:    buildSketch(1, 2),
-				},
-				{
-					EdgeTags:       []string{"edge-1"},
-					Hash:           3,
-					ParentHash:     1,
-					PathwayLatency: buildSketch(5),
-					EdgeLatency:    buildSketch(2),
+		Stats: []StatsBucket{
+			{
+				Start:    uint64(alignTs(tp2.UnixNano(), bucketDuration.Nanoseconds())),
+				Duration: uint64(bucketDuration.Nanoseconds()),
+				Stats: []StatsPoint{
+					{
+						EdgeTags:       []string{"edge-1"},
+						Hash:           2,
+						ParentHash:     1,
+						PathwayLatency: buildSketch(1, 5),
+						EdgeLatency:    buildSketch(1, 2),
+						TimestampType:  "current",
+					},
+					{
+						EdgeTags:       []string{"edge-1"},
+						Hash:           3,
+						ParentHash:     1,
+						PathwayLatency: buildSketch(5),
+						EdgeLatency:    buildSketch(2),
+						TimestampType:  "current",
+					},
 				},
 			},
-		}},
+			{
+				Start:    uint64(alignTs(tp2.UnixNano()-(5*time.Second).Nanoseconds(), bucketDuration.Nanoseconds())),
+				Duration: uint64(bucketDuration.Nanoseconds()),
+				Stats: []StatsPoint{
+					{
+						EdgeTags:       []string{"edge-1"},
+						Hash:           2,
+						ParentHash:     1,
+						PathwayLatency: buildSketch(1, 5),
+						EdgeLatency:    buildSketch(1, 2),
+						TimestampType:  "origin",
+					},
+					{
+						EdgeTags:       []string{"edge-1"},
+						Hash:           3,
+						ParentHash:     1,
+						PathwayLatency: buildSketch(5),
+						EdgeLatency:    buildSketch(2),
+						TimestampType:  "origin",
+					},
+				},
+			},
+		},
 		TracerVersion: "v0.2",
 		Lang:          "go",
 	}, sp)
