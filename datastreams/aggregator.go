@@ -246,13 +246,6 @@ func (a *aggregator) flushBucket(buckets map[int64]bucket, bucketStart int64, ti
 	bucket := buckets[bucketStart]
 	delete(buckets, bucketStart)
 	outStatsPoint := bucket.export(timestampType)
-	if timestampType == "pathStart" {
-		atomic.AddInt64(&a.stats.flushedOriginStatsPoints, int64(len(outStatsPoint)))
-	} else if timestampType == "current" {
-		atomic.AddInt64(&a.stats.flushedCurrentStatsPoints, int64(len(outStatsPoint)))
-	} else {
-		atomic.AddInt64(&a.stats.flushedUnknownStatsPoints, int64(len(outStatsPoint)))
-	}
 	return StatsBucket{
 		Start:    uint64(bucketStart),
 		Duration: uint64(bucketDuration.Nanoseconds()),
@@ -288,6 +281,18 @@ func (a *aggregator) flush(now time.Time) StatsPayload {
 }
 
 func (a *aggregator) sendToAgent(payload StatsPayload) {
+	for _, stats := range payload.Stats {
+		for _, point := range stats.Stats {
+			timestampType := point.TimestampType
+			if timestampType == "pathStart" {
+				atomic.AddInt64(&a.stats.flushedOriginStatsPoints, 1)
+			} else if timestampType == "current" {
+				atomic.AddInt64(&a.stats.flushedCurrentStatsPoints, 1)
+			} else {
+				atomic.AddInt64(&a.stats.flushedUnknownStatsPoints, 1)
+			}
+		}
+	}
 	atomic.AddInt64(&a.stats.flushedPayloads, 1)
 	atomic.AddInt64(&a.stats.flushedBuckets, int64(len(payload.Stats)))
 	if err := a.transport.sendPipelineStats(&payload); err != nil {
