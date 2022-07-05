@@ -78,14 +78,14 @@ func (b bucket) export(timestampType string) []StatsPoint {
 }
 
 type aggregatorStats struct {
-	payloadsIn             int64
-	flushedPayloads        int64
-	flushedBuckets         int64
-	flushErrors            int64
-	dropped                int64
-	timestampCurrentPoints int64
-	timestampOriginPoints  int64
-	timestampUnknownPoints int64
+	payloadsIn          int64
+	flushedPayloads     int64
+	flushedBuckets      int64
+	flushErrors         int64
+	dropped             int64
+	pointsTsTypeCurrent int64
+	pointsTsTypeOrigin  int64
+	pointsTsTypeUnknown int64
 }
 
 type aggregator struct {
@@ -126,13 +126,13 @@ func (a *aggregator) add(point statsPoint) {
 	var buckets map[int64]bucket
 	if point.timestampType == "current" {
 		buckets = a.timestampCurrentBuckets
-		atomic.AddInt64(&a.stats.timestampCurrentPoints, 1)
+		atomic.AddInt64(&a.stats.pointsTsTypeCurrent, 1)
 	} else if point.timestampType == "origin" {
 		buckets = a.timestampOriginBuckets
-		atomic.AddInt64(&a.stats.timestampOriginPoints, 1)
+		atomic.AddInt64(&a.stats.pointsTsTypeOrigin, 1)
 	} else {
 		log.Printf("ERROR: Unknown timestamp type: %s", point.timestampType)
-		atomic.AddInt64(&a.stats.timestampUnknownPoints, 1)
+		atomic.AddInt64(&a.stats.pointsTsTypeUnknown, 1)
 	}
 	b, ok := buckets[btime]
 	if !ok {
@@ -206,16 +206,9 @@ func (a *aggregator) reportStats() {
 		a.statsd.Count("datadog.datastreams.aggregator.flushed_buckets", atomic.SwapInt64(&a.stats.flushedBuckets, 0), nil, 1)
 		a.statsd.Count("datadog.datastreams.aggregator.flush_errors", atomic.SwapInt64(&a.stats.flushErrors, 0), nil, 1)
 		a.statsd.Count("datadog.datastreams.dropped_payloads", atomic.SwapInt64(&a.stats.dropped, 0), nil, 1)
-		a.statsd.Count("datadog.datastreams.aggregator.timestamp_current_points", atomic.SwapInt64(&a.stats.timestampCurrentPoints, 0), nil, 1)
-		a.statsd.Count("datadog.datastreams.aggregator.timestamp_origin_points", atomic.SwapInt64(&a.stats.timestampOriginPoints, 0), nil, 1)
-		a.statsd.Count("datadog.datastreams.aggregator.timestamp_unknown_points", atomic.SwapInt64(&a.stats.timestampUnknownPoints, 0), nil, 1)
-		a.statsd.Count("datadog.datastreams.aggregator.flushed_current_buckets", atomic.SwapInt64(&a.stats.flushedCurrentBuckets, 0), nil, 1)
-		a.statsd.Count("datadog.datastreams.aggregator.flushed_origin_buckets", atomic.SwapInt64(&a.stats.flushedOriginBuckets, 0), nil, 1)
-		a.statsd.Count("datadog.datastreams.aggregator.flushed_unknown_buckets", atomic.SwapInt64(&a.stats.flushedUnknownBuckets, 0), nil, 1)
-
-		a.statsd.Count("datadog.datastreams.aggregator.flushed_origin_points", atomic.SwapInt64(&a.stats.flushedOriginStatsPoints, 0), nil, 1)
-		a.statsd.Count("datadog.datastreams.aggregator.flushed_current_points", atomic.SwapInt64(&a.stats.flushedCurrentStatsPoints, 0), nil, 1)
-		a.statsd.Count("datadog.datastreams.aggregator.flushed_unknown_points", atomic.SwapInt64(&a.stats.flushedUnknownStatsPoints, 0), nil, 1)
+		a.statsd.Count("datadog.datastreams.aggregator.points_ts_type_current", atomic.SwapInt64(&a.stats.pointsTsTypeCurrent, 0), nil, 1)
+		a.statsd.Count("datadog.datastreams.aggregator.points_ts_type_origin", atomic.SwapInt64(&a.stats.pointsTsTypeOrigin, 0), nil, 1)
+		a.statsd.Count("datadog.datastreams.aggregator.points_ts_type_unknown", atomic.SwapInt64(&a.stats.pointsTsTypeUnknown, 0), nil, 1)
 	}
 }
 
