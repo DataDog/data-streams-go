@@ -346,6 +346,12 @@ func (z *StatsPoint) DecodeMsg(dc *msgp.Reader) (err error) {
 				err = msgp.WrapError(err, "EdgeLatency")
 				return
 			}
+		case "TimestampType":
+			z.TimestampType, err = dc.ReadString()
+			if err != nil {
+				err = msgp.WrapError(err, "TimestampType")
+				return
+			}
 		default:
 			err = dc.Skip()
 			if err != nil {
@@ -359,9 +365,9 @@ func (z *StatsPoint) DecodeMsg(dc *msgp.Reader) (err error) {
 
 // EncodeMsg implements msgp.Encodable
 func (z *StatsPoint) EncodeMsg(en *msgp.Writer) (err error) {
-	// map header, size 6
+	// map header, size 7
 	// write "Service"
-	err = en.Append(0x86, 0xa7, 0x53, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65)
+	err = en.Append(0x87, 0xa7, 0x53, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65)
 	if err != nil {
 		return
 	}
@@ -427,6 +433,16 @@ func (z *StatsPoint) EncodeMsg(en *msgp.Writer) (err error) {
 		err = msgp.WrapError(err, "EdgeLatency")
 		return
 	}
+	// write "TimestampType"
+	err = en.Append(0xad, 0x54, 0x69, 0x6d, 0x65, 0x73, 0x74, 0x61, 0x6d, 0x70, 0x54, 0x79, 0x70, 0x65)
+	if err != nil {
+		return
+	}
+	err = en.WriteString(z.TimestampType)
+	if err != nil {
+		err = msgp.WrapError(err, "TimestampType")
+		return
+	}
 	return
 }
 
@@ -436,6 +452,6 @@ func (z *StatsPoint) Msgsize() (s int) {
 	for za0001 := range z.EdgeTags {
 		s += msgp.StringPrefixSize + len(z.EdgeTags[za0001])
 	}
-	s += 5 + msgp.Uint64Size + 11 + msgp.Uint64Size + 15 + msgp.BytesPrefixSize + len(z.PathwayLatency) + 12 + msgp.BytesPrefixSize + len(z.EdgeLatency)
+	s += 5 + msgp.Uint64Size + 11 + msgp.Uint64Size + 15 + msgp.BytesPrefixSize + len(z.PathwayLatency) + 12 + msgp.BytesPrefixSize + len(z.EdgeLatency) + 14 + msgp.StringPrefixSize + len(z.TimestampType)
 	return
 }
