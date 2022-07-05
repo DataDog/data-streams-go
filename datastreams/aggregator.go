@@ -49,7 +49,7 @@ type statsGroup struct {
 
 type bucket map[uint64]statsGroup
 
-func (b bucket) export(timestampType string) []StatsPoint {
+func (b bucket) export(timestampType TimestampType) []StatsPoint {
 	stats := make([]StatsPoint, 0, len(b))
 	for _, s := range b {
 		pathwayLatency, err := proto.Marshal(s.pathwayLatency.ToProto())
@@ -210,7 +210,7 @@ func (a *aggregator) runFlusher() {
 	}
 }
 
-func (a *aggregator) flushBucket(buckets map[int64]bucket, bucketStart int64, timestampType string) StatsBucket {
+func (a *aggregator) flushBucket(buckets map[int64]bucket, bucketStart int64, timestampType TimestampType) StatsBucket {
 	bucket := buckets[bucketStart]
 	delete(buckets, bucketStart)
 	return StatsBucket{
@@ -235,14 +235,14 @@ func (a *aggregator) flush(now time.Time) StatsPayload {
 			// do not flush the bucket at the current time
 			continue
 		}
-		sp.Stats = append(sp.Stats, a.flushBucket(a.tsTypeCurrentBuckets, ts, "current"))
+		sp.Stats = append(sp.Stats, a.flushBucket(a.tsTypeCurrentBuckets, ts, TIMESTAMP_TYPE_CURRENT))
 	}
 	for ts := range a.tsTypeOriginBuckets {
 		if ts > nowNano-bucketDuration.Nanoseconds() {
 			// do not flush the bucket at the current time
 			continue
 		}
-		sp.Stats = append(sp.Stats, a.flushBucket(a.tsTypeOriginBuckets, ts, "origin"))
+		sp.Stats = append(sp.Stats, a.flushBucket(a.tsTypeOriginBuckets, ts, TIMESTAMP_TYPE_ORIGIN))
 	}
 	return sp
 }

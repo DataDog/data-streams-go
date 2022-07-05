@@ -347,10 +347,14 @@ func (z *StatsPoint) DecodeMsg(dc *msgp.Reader) (err error) {
 				return
 			}
 		case "TimestampType":
-			z.TimestampType, err = dc.ReadString()
-			if err != nil {
-				err = msgp.WrapError(err, "TimestampType")
-				return
+			{
+				var zb0003 string
+				zb0003, err = dc.ReadString()
+				if err != nil {
+					err = msgp.WrapError(err, "TimestampType")
+					return
+				}
+				z.TimestampType = TimestampType(zb0003)
 			}
 		default:
 			err = dc.Skip()
@@ -438,7 +442,7 @@ func (z *StatsPoint) EncodeMsg(en *msgp.Writer) (err error) {
 	if err != nil {
 		return
 	}
-	err = en.WriteString(z.TimestampType)
+	err = en.WriteString(string(z.TimestampType))
 	if err != nil {
 		err = msgp.WrapError(err, "TimestampType")
 		return
@@ -452,6 +456,36 @@ func (z *StatsPoint) Msgsize() (s int) {
 	for za0001 := range z.EdgeTags {
 		s += msgp.StringPrefixSize + len(z.EdgeTags[za0001])
 	}
-	s += 5 + msgp.Uint64Size + 11 + msgp.Uint64Size + 15 + msgp.BytesPrefixSize + len(z.PathwayLatency) + 12 + msgp.BytesPrefixSize + len(z.EdgeLatency) + 14 + msgp.StringPrefixSize + len(z.TimestampType)
+	s += 5 + msgp.Uint64Size + 11 + msgp.Uint64Size + 15 + msgp.BytesPrefixSize + len(z.PathwayLatency) + 12 + msgp.BytesPrefixSize + len(z.EdgeLatency) + 14 + msgp.StringPrefixSize + len(string(z.TimestampType))
+	return
+}
+
+// DecodeMsg implements msgp.Decodable
+func (z *TimestampType) DecodeMsg(dc *msgp.Reader) (err error) {
+	{
+		var zb0001 string
+		zb0001, err = dc.ReadString()
+		if err != nil {
+			err = msgp.WrapError(err)
+			return
+		}
+		(*z) = TimestampType(zb0001)
+	}
+	return
+}
+
+// EncodeMsg implements msgp.Encodable
+func (z TimestampType) EncodeMsg(en *msgp.Writer) (err error) {
+	err = en.WriteString(string(z))
+	if err != nil {
+		err = msgp.WrapError(err)
+		return
+	}
+	return
+}
+
+// Msgsize returns an upper bound estimate of the number of bytes occupied by the serialized message
+func (z TimestampType) Msgsize() (s int) {
+	s = msgp.StringPrefixSize + len(string(z))
 	return
 }
