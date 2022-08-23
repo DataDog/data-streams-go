@@ -70,35 +70,29 @@ ddkafka.TraceKafkaProduce(mergedContext, &producedMsg)
 
 ### Manual instrumentation
 
-the example below is for Kafka, but you can instrument any technology you want with these manual instrumentation.
-In Kafka, we propagate the context through Kafka headers.
+the example below is for HTTP, but you can instrument any technology you want with these manual instrumentation.
+In HTTP, we propagate the context through HTTP headers.
 
-In the producer, to inject the context, use:
+In the http client, to inject the context, use:
 ```
-msg := kafka.Message{
-		// message initialization here
-	}
-
+req, err := http.NewRequest(...)
+...
 p, ok := datastreams.PathwayFromContext(ctx)
 if ok {
-   msg.Headers = append(msg.Headers, kafka.Header{Key: datastreams.PropagationKey, Value: p.Encode()})
+   req.Headers.Set(datastreams.PropagationKeyBase64, p.EncodeStr())
 }
 ```
 
-And to extract the context from Kafka headers (inside the Kafka consumer), use:
+And to extract the context from HTTP headers (inside the HTTP server), use:
 ```
-func extractPathwayToContext(m *kafka.Message, group string) context.Context {
-	ctx := context.Background()
-	for _, header := range m.Headers {
-		if header.Key == datastreams.PropagationKey {
-			p, err := datastreams.Decode(header.Value)
-			if err != nil {
-				break
-			}
-			ctx = datastreams.ContextWithPathway(ctx, p)
-		}
+func extractPathwayToContext(req *http.Request) context.Context {
+	ctx := req.Context()
+	p, err := datastreams.DecodeStr(req.Header.Get(datastreams.PropagationKeyBase64))
+	if err != nil {
+		return ctx
 	}
-	_, ctx = datastreams.SetCheckpoint(ctx, "type:kafka", "topic:"+*m.TopicPartition.Topic, "group:"+group)
+	ctx = datastreams.ContextWithPathway(ctx, p)
+	_, ctx = datastreams.SetCheckpoint(ctx, "type:http")
 }
 
 ```
