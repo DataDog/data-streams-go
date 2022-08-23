@@ -12,15 +12,27 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestEncode(t *testing.T) {
+func testPathway() Pathway {
 	now := time.Now().Local().Truncate(time.Millisecond)
-	p := Pathway{
+	return Pathway{
 		hash:         234,
 		pathwayStart: now.Add(-time.Hour),
 		edgeStart:    now,
 	}
+}
+
+func TestEncode(t *testing.T) {
+	p := testPathway()
 	encoded := p.Encode()
 	decoded, err := Decode(encoded)
+	assert.Nil(t, err)
+	assert.Equal(t, p, decoded)
+}
+
+func TestEncodeStr(t *testing.T) {
+	p := testPathway()
+	encoded := p.EncodeStr()
+	decoded, err := DecodeStr(encoded)
 	assert.Nil(t, err)
 	assert.Equal(t, p, decoded)
 }
