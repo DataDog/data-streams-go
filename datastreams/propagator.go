@@ -6,6 +6,7 @@
 package datastreams
 
 import (
+	"encoding/base64"
 	"encoding/binary"
 	"errors"
 	"time"
@@ -15,7 +16,8 @@ import (
 
 const (
 	// PropagationKey is the key to use to propagate the pathway between services.
-	PropagationKey = "dd-pathway-ctx"
+	PropagationKey       = "dd-pathway-ctx"
+	PropagationKeyBase64 = "dd-pathway-ctx-base64"
 )
 
 // Encode encodes the pathway
@@ -45,4 +47,19 @@ func Decode(data []byte) (p Pathway, err error) {
 	p.pathwayStart = time.Unix(0, pathwayStart*int64(time.Millisecond))
 	p.edgeStart = time.Unix(0, edgeStart*int64(time.Millisecond))
 	return p, nil
+}
+
+// EncodeStr encodes a pathway context into a string using base64 encoding.
+func (p Pathway) EncodeStr() string {
+	b := p.Encode()
+	return base64.StdEncoding.EncodeToString(b)
+}
+
+// DecodeStr decodes a pathway context from a string using base64 encoding.
+func DecodeStr(str string) (p Pathway, err error) {
+	data, err := base64.StdEncoding.DecodeString(str)
+	if err != nil {
+		return p, err
+	}
+	return Decode(data)
 }
