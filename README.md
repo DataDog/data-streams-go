@@ -67,3 +67,38 @@ mergedContext = datastreams.MergeContexts(contexts...)
 
 ddkafka.TraceKafkaProduce(mergedContext, &producedMsg)
 ```
+
+### Manual instrumentation
+
+the example below is for Kafka, but you can instrument any technology you want with these manual instrumentation.
+In Kafka, we propagate the context through Kafka headers.
+
+In the producer, to inject the context, use:
+```
+msg := kafka.Message{
+		// message initialization here
+	}
+
+p, ok := datastreams.PathwayFromContext(ctx)
+if ok {
+   msg.Headers = append(msg.Headers, kafka.Header{Key: datastreams.PropagationKey, Value: p.Encode()})
+}
+```
+
+And to extract the context from Kafka headers (inside the Kafka consumer), use:
+```
+func extractPathwayToContext(m *kafka.Message, group string) context.Context {
+	ctx := context.Background()
+	for _, header := range m.Headers {
+		if header.Key == datastreams.PropagationKey {
+			p, err := datastreams.Decode(header.Value)
+			if err != nil {
+				break
+			}
+			ctx = datastreams.ContextWithPathway(ctx, p)
+		}
+	}
+	_, ctx = datastreams.SetCheckpoint(ctx, "type:kafka", "topic:"+*m.TopicPartition.Topic, "group:"+group)
+}
+
+```
