@@ -73,7 +73,7 @@ ddkafka.TraceKafkaProduce(mergedContext, &producedMsg)
 the example below is for HTTP, but you can instrument any technology you want with these manual instrumentation.
 In HTTP, we propagate the context through HTTP headers.
 
-In the http client, to inject the context, use:
+In the http client, to inject the pathway, use:
 ```
 req, err := http.NewRequest(...)
 ...
@@ -83,7 +83,7 @@ if ok {
 }
 ```
 
-And to extract the context from HTTP headers (inside the HTTP server), use:
+And to extract the pathway from HTTP headers (inside the HTTP server), use:
 ```
 func extractPathwayToContext(req *http.Request) context.Context {
 	ctx := req.Context()
