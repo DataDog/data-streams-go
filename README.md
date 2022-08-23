@@ -71,7 +71,7 @@ ddkafka.TraceKafkaProduce(mergedContext, &producedMsg)
 ### Manual instrumentation
 
 the example below is for HTTP, but you can instrument any technology you want with these manual instrumentation.
-In HTTP, we propagate the context through HTTP headers.
+In HTTP, we propagate the pathway through HTTP headers.
 
 In the http client, to inject the pathway, use:
 ```
