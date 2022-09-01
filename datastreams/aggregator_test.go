@@ -33,7 +33,7 @@ func TestAggregator(t *testing.T) {
 	tp2 := time.Unix(0, alignTs(tp1.Add(time.Second*40).UnixNano(), bucketDuration.Nanoseconds())).Add(6 * time.Second)
 
 	p.add(statsPoint{
-		edgeTags:       []string{"edge-1"},
+		edgeTags:       []string{"type:edge-1"},
 		hash:           2,
 		parentHash:     1,
 		timestamp:      tp2.UnixNano(),
@@ -41,7 +41,7 @@ func TestAggregator(t *testing.T) {
 		edgeLatency:    time.Second.Nanoseconds(),
 	})
 	p.add(statsPoint{
-		edgeTags:       []string{"edge-1"},
+		edgeTags:       []string{"type:edge-1"},
 		hash:           2,
 		parentHash:     1,
 		timestamp:      tp2.UnixNano(),
@@ -49,7 +49,7 @@ func TestAggregator(t *testing.T) {
 		edgeLatency:    (2 * time.Second).Nanoseconds(),
 	})
 	p.add(statsPoint{
-		edgeTags:       []string{"edge-1"},
+		edgeTags:       []string{"type:edge-1"},
 		hash:           3,
 		parentHash:     1,
 		timestamp:      tp2.UnixNano(),
@@ -57,7 +57,7 @@ func TestAggregator(t *testing.T) {
 		edgeLatency:    (2 * time.Second).Nanoseconds(),
 	})
 	p.add(statsPoint{
-		edgeTags:       []string{"edge-1"},
+		edgeTags:       []string{"type:edge-1"},
 		hash:           2,
 		parentHash:     1,
 		timestamp:      tp1.UnixNano(),
@@ -74,7 +74,7 @@ func TestAggregator(t *testing.T) {
 				Start:    uint64(alignTs(tp1.UnixNano(), bucketDuration.Nanoseconds())),
 				Duration: uint64(bucketDuration.Nanoseconds()),
 				Stats: []StatsPoint{{
-					EdgeTags:       []string{"edge-1"},
+					EdgeTags:       []string{"type:edge-1"},
 					Hash:           2,
 					ParentHash:     1,
 					PathwayLatency: buildSketch(5),
@@ -86,7 +86,7 @@ func TestAggregator(t *testing.T) {
 				Start:    uint64(alignTs(tp1.UnixNano()-(5*time.Second).Nanoseconds(), bucketDuration.Nanoseconds())),
 				Duration: uint64(bucketDuration.Nanoseconds()),
 				Stats: []StatsPoint{{
-					EdgeTags:       []string{"edge-1"},
+					EdgeTags:       []string{"type:edge-1"},
 					Hash:           2,
 					ParentHash:     1,
 					PathwayLatency: buildSketch(5),
@@ -95,7 +95,7 @@ func TestAggregator(t *testing.T) {
 				}},
 			},
 		},
-		TracerVersion: "v0.2",
+		TracerVersion: "v0.3",
 		Lang:          "go",
 	}, p.flush(tp2))
 
@@ -113,7 +113,7 @@ func TestAggregator(t *testing.T) {
 				Duration: uint64(bucketDuration.Nanoseconds()),
 				Stats: []StatsPoint{
 					{
-						EdgeTags:       []string{"edge-1"},
+						EdgeTags:       []string{"type:edge-1"},
 						Hash:           2,
 						ParentHash:     1,
 						PathwayLatency: buildSketch(1, 5),
@@ -121,7 +121,7 @@ func TestAggregator(t *testing.T) {
 						TimestampType:  "current",
 					},
 					{
-						EdgeTags:       []string{"edge-1"},
+						EdgeTags:       []string{"type:edge-1"},
 						Hash:           3,
 						ParentHash:     1,
 						PathwayLatency: buildSketch(5),
@@ -135,7 +135,7 @@ func TestAggregator(t *testing.T) {
 				Duration: uint64(bucketDuration.Nanoseconds()),
 				Stats: []StatsPoint{
 					{
-						EdgeTags:       []string{"edge-1"},
+						EdgeTags:       []string{"type:edge-1"},
 						Hash:           2,
 						ParentHash:     1,
 						PathwayLatency: buildSketch(1, 5),
@@ -143,7 +143,7 @@ func TestAggregator(t *testing.T) {
 						TimestampType:  "origin",
 					},
 					{
-						EdgeTags:       []string{"edge-1"},
+						EdgeTags:       []string{"type:edge-1"},
 						Hash:           3,
 						ParentHash:     1,
 						PathwayLatency: buildSketch(5),
@@ -153,7 +153,7 @@ func TestAggregator(t *testing.T) {
 				},
 			},
 		},
-		TracerVersion: "v0.2",
+		TracerVersion: "v0.3",
 		Lang:          "go",
 	}, sp)
 }
