@@ -10,9 +10,12 @@ import (
 	"hash/fnv"
 	"math/rand"
 	"sort"
+	"strings"
 	"sync/atomic"
 	"time"
 )
+
+var hashableEdgeTags = map[string]struct{}{"event_type": {}, "exchange": {}, "group": {}, "topic": {}, "type": {}}
 
 // Pathway is used to monitor how payloads are sent across different services.
 // An example Pathway would be:
@@ -54,7 +57,13 @@ func nodeHash(service, env, primaryTag string, edgeTags []string) uint64 {
 	b = append(b, env...)
 	b = append(b, primaryTag...)
 	for _, t := range edgeTags {
-		b = append(b, t...)
+		s := strings.Split(t, ":")
+		if len(s) == 2 {
+			if _, ok := hashableEdgeTags[s[0]]; !ok {
+				continue
+			}
+			b = append(b, t...)
+		}
 	}
 	h := fnv.New64()
 	h.Write(b)

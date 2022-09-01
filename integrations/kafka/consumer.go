@@ -7,6 +7,7 @@ package kafka
 
 import (
 	"context"
+	"strconv"
 
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 
@@ -22,6 +23,7 @@ func TraceKafkaConsume(ctx context.Context, msg *kafka.Message, group string) co
 	if msg.TopicPartition.Topic != nil {
 		edges = append(edges, "topic:"+*msg.TopicPartition.Topic)
 	}
+	edges = append(edges, "partition:"+strconv.Itoa(int(msg.TopicPartition.Partition)))
 	_, ctx = datastreams.SetCheckpoint(ctx, edges...)
 	return ctx
 }

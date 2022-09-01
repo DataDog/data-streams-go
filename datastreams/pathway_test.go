@@ -95,4 +95,31 @@ func TestPathway(t *testing.T) {
 		assert.Equal(t, hash3, statsPointWith2EdgeTags.hash)
 		assert.Equal(t, []string{"some_other_key:some_other_val", "type:internal"}, statsPointWith2EdgeTags.edgeTags)
 	})
+
+	t.Run("test nodeHash", func(t *testing.T) {
+		assert.NotEqual(t,
+			nodeHash("service-1", "env", "d:1", []string{"type:internal"}),
+			nodeHash("service-1", "env", "d:1", []string{"type:kafka"}),
+		)
+		assert.NotEqual(t,
+			nodeHash("service-1", "env", "d:1", []string{"exchange:1"}),
+			nodeHash("service-1", "env", "d:1", []string{"exchange:2"}),
+		)
+		assert.NotEqual(t,
+			nodeHash("service-1", "env", "d:1", []string{"topic:1"}),
+			nodeHash("service-1", "env", "d:1", []string{"topic:2"}),
+		)
+		assert.NotEqual(t,
+			nodeHash("service-1", "env", "d:1", []string{"group:1"}),
+			nodeHash("service-1", "env", "d:1", []string{"group:2"}),
+		)
+		assert.NotEqual(t,
+			nodeHash("service-1", "env", "d:1", []string{"event_type:1"}),
+			nodeHash("service-1", "env", "d:1", []string{"event_type:2"}),
+		)
+		assert.Equal(t,
+			nodeHash("service-1", "env", "d:1", []string{"partition:0"}),
+			nodeHash("service-1", "env", "d:1", []string{"partition:1"}),
+		)
+	})
 }
