@@ -19,7 +19,7 @@ import (
 // this function to another call of TraceKafkaConsume, as it will modify the pathway incorrectly.
 func TraceKafkaConsume(ctx context.Context, msg *kafka.Message, group string) context.Context {
 	ctx = extractPipelineToContext(ctx, msg)
-	edges := []string{"type:kafka", "group:" + group}
+	edges := []string{"type:kafka", "direction:in", "group:" + group}
 	if msg.TopicPartition.Topic != nil {
 		edges = append(edges, "topic:"+*msg.TopicPartition.Topic)
 	}
