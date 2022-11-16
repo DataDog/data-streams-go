@@ -92,7 +92,7 @@ func extractPathwayToContext(req *http.Request) context.Context {
 		return ctx
 	}
 	ctx = datastreams.ContextWithPathway(ctx, p)
-	_, ctx = datastreams.SetCheckpoint(ctx, string[]{"type:http", "direction:out"})
+	_, ctx = datastreams.SetCheckpoint(ctx, string[]{"type:http", "direction:in"})
 }
 
 ```
