@@ -18,7 +18,7 @@ import (
 // newly updated context which records the updated pathway. Do not pass the resulting context from
 // this function to another call of TraceKafkaProduce, as it will modify the pathway incorrectly.
 func TraceKafkaProduce(ctx context.Context, msg *kafka.Message) context.Context {
-	edges := []string{"type:internal"}
+	edges := []string{"type:kafka", "direction:out"}
 	if msg.TopicPartition.Topic != nil {
 		edges = append(edges, "topic:"+*msg.TopicPartition.Topic)
 	}
