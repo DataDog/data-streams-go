@@ -7,9 +7,8 @@ package kafka
 
 import (
 	"context"
-	"strconv"
-
 	"github.com/confluentinc/confluent-kafka-go/kafka"
+	"strconv"
 
 	"github.com/DataDog/data-streams-go/datastreams"
 )
@@ -18,13 +17,15 @@ import (
 // newly updated context which records the updated pathway. Do not pass the resulting context from
 // this function to another call of TraceKafkaProduce, as it will modify the pathway incorrectly.
 func TraceKafkaProduce(ctx context.Context, msg *kafka.Message) context.Context {
-	edges := []string{"type:kafka", "direction:out"}
-	if msg.TopicPartition.Topic != nil {
-		edges = append(edges, "topic:"+*msg.TopicPartition.Topic)
-	}
+	edges := []string{"direction:out"}
 	if msg.TopicPartition.Partition != kafka.PartitionAny {
 		edges = append(edges, "partition:"+strconv.Itoa(int(msg.TopicPartition.Partition)))
 	}
+	if msg.TopicPartition.Topic != nil {
+		edges = append(edges, "topic:"+*msg.TopicPartition.Topic)
+	}
+	edges = append(edges, "type:kafka")
+
 	p, ctx := datastreams.SetCheckpoint(ctx, edges...)
 	msg.Headers = append(msg.Headers, kafka.Header{Key: datastreams.PropagationKey, Value: p.Encode()})
 	return ctx

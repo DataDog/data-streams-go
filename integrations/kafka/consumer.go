@@ -7,9 +7,8 @@ package kafka
 
 import (
 	"context"
-	"strconv"
-
 	"github.com/confluentinc/confluent-kafka-go/kafka"
+	"strconv"
 
 	"github.com/DataDog/data-streams-go/datastreams"
 )
@@ -18,12 +17,19 @@ import (
 // It returns the newly updated context which records the extracted pathway. Do not pass the resulting context from
 // this function to another call of TraceKafkaConsume, as it will modify the pathway incorrectly.
 func TraceKafkaConsume(ctx context.Context, msg *kafka.Message, group string) context.Context {
+	// tags need to be sorted, to ensure hash consistency across implementations
 	ctx = extractPipelineToContext(ctx, msg)
-	edges := []string{"type:kafka", "direction:in", "group:" + group}
+	edges := []string{
+		"direction:in",
+		"group:" + group,
+		"partition:" + strconv.Itoa(int(msg.TopicPartition.Partition)),
+	}
+
 	if msg.TopicPartition.Topic != nil {
 		edges = append(edges, "topic:"+*msg.TopicPartition.Topic)
 	}
-	edges = append(edges, "partition:"+strconv.Itoa(int(msg.TopicPartition.Partition)))
+	edges = append(edges, "type:kafka")
+
 	_, ctx = datastreams.SetCheckpoint(ctx, edges...)
 	return ctx
 }
