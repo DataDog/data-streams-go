@@ -34,6 +34,8 @@ func Decode(data []byte) (p Pathway, err error) {
 	if len(data) < 8 {
 		return p, errors.New("hash smaller than 8 bytes")
 	}
+	var nChildren int32
+	p.nChildren = &nChildren
 	p.hash = binary.LittleEndian.Uint64(data)
 	data = data[8:]
 	pathwayStart, err := encoding.DecodeVarint64(&data)

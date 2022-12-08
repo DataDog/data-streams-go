@@ -26,6 +26,7 @@ func TestEncode(t *testing.T) {
 	encoded := p.Encode()
 	decoded, err := Decode(encoded)
 	assert.Nil(t, err)
+	decoded.nChildren = nil
 	assert.Equal(t, p, decoded)
 }
 
@@ -34,5 +35,6 @@ func TestEncodeStr(t *testing.T) {
 	encoded := p.EncodeStr()
 	decoded, err := DecodeStr(encoded)
 	assert.Nil(t, err)
+	decoded.nChildren = nil
 	assert.Equal(t, p, decoded)
 }
