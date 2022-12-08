@@ -51,5 +51,7 @@ type StatsPoint struct {
 	// those are distributions of latency in seconds.
 	PathwayLatency []byte
 	EdgeLatency    []byte
+	FanIns         int64
+	FanOuts        int64
 	TimestampType  TimestampType
 }

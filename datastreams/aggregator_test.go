@@ -100,9 +100,11 @@ func TestAggregator(t *testing.T) {
 	}, p.flush(tp2))
 
 	sp := p.flush(tp2.Add(bucketDuration).Add(time.Second))
-	sort.Slice(sp.Stats[0].Stats, func(i, j int) bool {
-		return sp.Stats[0].Stats[i].Hash < sp.Stats[0].Stats[j].Hash
-	})
+	for k := range sp.Stats {
+		sort.Slice(sp.Stats[k].Stats, func(i, j int) bool {
+			return sp.Stats[k].Stats[i].Hash < sp.Stats[k].Stats[j].Hash
+		})
+	}
 	assert.Equal(t, StatsPayload{
 		Env:        "env",
 		Service:    "service",

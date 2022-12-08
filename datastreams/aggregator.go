@@ -30,12 +30,15 @@ const (
 var sketchMapping, _ = mapping.NewLogarithmicMapping(0.01)
 
 type statsPoint struct {
-	edgeTags       []string
-	hash           uint64
-	parentHash     uint64
-	timestamp      int64
-	pathwayLatency int64
-	edgeLatency    int64
+	edgeTags        []string
+	hash            uint64
+	parentHash      uint64
+	timestamp       int64
+	pathwayLatency  int64
+	edgeLatency     int64
+	fanOut          bool
+	fanIn           bool
+	ignoreLatencies bool
 }
 
 type statsGroup struct {
@@ -45,6 +48,8 @@ type statsGroup struct {
 	parentHash     uint64
 	pathwayLatency *ddsketch.DDSketch
 	edgeLatency    *ddsketch.DDSketch
+	fanOuts        int64
+	fanIns         int64
 }
 
 type bucket map[uint64]statsGroup
@@ -70,6 +75,8 @@ func (b bucket) export(timestampType TimestampType) []StatsPoint {
 			Hash:           s.hash,
 			ParentHash:     s.parentHash,
 			TimestampType:  timestampType,
+			FanIns:         s.fanIns,
+			FanOuts:        s.fanOuts,
 		})
 	}
 	return stats
@@ -130,23 +137,38 @@ func (a *aggregator) addToBuckets(point statsPoint, btime int64, buckets map[int
 			hash:           point.hash,
 			pathwayLatency: ddsketch.NewDDSketch(sketchMapping, store.DenseStoreConstructor(), store.DenseStoreConstructor()),
 			edgeLatency:    ddsketch.NewDDSketch(sketchMapping, store.DenseStoreConstructor(), store.DenseStoreConstructor()),
+			fanOuts:        0,
+			fanIns:         0,
 		}
-		b[point.hash] = group
 	}
-	if err := group.pathwayLatency.Add(math.Max(float64(point.pathwayLatency)/float64(time.Second), 0)); err != nil {
-		log.Printf("ERROR: failed to add pathway latency. Ignoring %v.", err)
+	if point.fanOut {
+		group.fanOuts++
 	}
-	if err := group.edgeLatency.Add(math.Max(float64(point.edgeLatency)/float64(time.Second), 0)); err != nil {
-		log.Printf("ERROR: failed to add edge latency. Ignoring %v.", err)
+	if point.fanIn {
+		group.fanIns++
 	}
+	if !point.ignoreLatencies {
+		if err := group.pathwayLatency.Add(math.Max(float64(point.pathwayLatency)/float64(time.Second), 0)); err != nil {
+			log.Printf("ERROR: failed to add pathway latency. Ignoring %v.", err)
+		}
+		if err := group.edgeLatency.Add(math.Max(float64(point.edgeLatency)/float64(time.Second), 0)); err != nil {
+			log.Printf("ERROR: failed to add edge latency. Ignoring %v.", err)
+		}
+	}
+	b[point.hash] = group
 }
 
 func (a *aggregator) add(point statsPoint) {
 	currentBucketTime := alignTs(point.timestamp, bucketDuration.Nanoseconds())
-	a.addToBuckets(point, currentBucketTime, a.tsTypeCurrentBuckets)
 	originTimestamp := point.timestamp - point.pathwayLatency
 	originBucketTime := alignTs(originTimestamp, bucketDuration.Nanoseconds())
 	a.addToBuckets(point, originBucketTime, a.tsTypeOriginBuckets)
+	if !point.ignoreLatencies {
+		// we count fan in and outs only for origin bucket time
+		point.fanOut = false
+		point.fanIn = false
+		a.addToBuckets(point, currentBucketTime, a.tsTypeCurrentBuckets)
+	}
 }
 
 func (a *aggregator) run(tick <-chan time.Time) {

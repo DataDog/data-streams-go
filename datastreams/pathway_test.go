@@ -32,6 +32,7 @@ func TestPathway(t *testing.T) {
 		hash1 := pathwayHash(nodeHash("service-1", "env", "d:1", nil), 0)
 		hash2 := pathwayHash(nodeHash("service-1", "env", "d:1", []string{"edge-1"}), hash1)
 		hash3 := pathwayHash(nodeHash("service-1", "env", "d:1", []string{"edge-2"}), hash2)
+		p.nChildren = nil
 		assert.Equal(t, Pathway{
 			hash:         hash3,
 			pathwayStart: start,

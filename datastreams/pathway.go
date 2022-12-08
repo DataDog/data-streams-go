@@ -32,6 +32,7 @@ type Pathway struct {
 	pathwayStart time.Time
 	// edgeStart is the start of the previous node.
 	edgeStart time.Time
+	nChildren *int32
 }
 
 // Merge merges multiple pathways into one.
@@ -41,8 +42,32 @@ func Merge(pathways []Pathway) Pathway {
 	if len(pathways) == 0 {
 		return Pathway{}
 	}
+	if len(pathways) == 1 {
+		return pathways[0]
+	}
 	// Randomly select a pathway to propagate downstream.
 	n := rand.Intn(len(pathways))
+	now := time.Now()
+	if aggregator := getGlobalAggregator(); aggregator != nil {
+		for i, p := range pathways {
+			if i != n {
+				select {
+				case aggregator.in <- statsPoint{
+					// we hope that the point will already be in the store (I believe it should be since this pathway was
+					// created before
+					hash:      p.hash,
+					timestamp: now.UnixNano(),
+					// we pass this latency so we can compute origin timestamp
+					pathwayLatency:  now.Sub(p.pathwayStart).Nanoseconds(),
+					fanIn:           true,
+					ignoreLatencies: true,
+				}:
+				default:
+					atomic.AddInt64(&aggregator.stats.dropped, 1)
+				}
+			}
+		}
+	}
 	return pathways[n]
 }
 
@@ -85,10 +110,12 @@ func NewPathway(edgeTags ...string) Pathway {
 }
 
 func newPathway(now time.Time, edgeTags ...string) Pathway {
+	var nChildren int32
 	p := Pathway{
 		hash:         0,
 		pathwayStart: now,
 		edgeStart:    now,
+		nChildren:    &nChildren,
 	}
 	return p.setCheckpoint(now, edgeTags)
 }
@@ -99,6 +126,10 @@ func (p Pathway) SetCheckpoint(edgeTags ...string) Pathway {
 }
 
 func (p Pathway) setCheckpoint(now time.Time, edgeTags []string) Pathway {
+	fanOut := false
+	if atomic.AddInt32(p.nChildren, 1) > 1 {
+		fanOut = true
+	}
 	aggr := getGlobalAggregator()
 	service := defaultServiceName
 	primaryTag := ""
@@ -108,10 +139,12 @@ func (p Pathway) setCheckpoint(now time.Time, edgeTags []string) Pathway {
 		primaryTag = aggr.primaryTag
 		env = aggr.env
 	}
+	var nChildren int32
 	child := Pathway{
 		hash:         pathwayHash(nodeHash(service, env, primaryTag, edgeTags), p.hash),
 		pathwayStart: p.pathwayStart,
 		edgeStart:    now,
+		nChildren:    &nChildren,
 	}
 	if aggregator := getGlobalAggregator(); aggregator != nil {
 		select {
@@ -122,6 +155,7 @@ func (p Pathway) setCheckpoint(now time.Time, edgeTags []string) Pathway {
 			timestamp:      now.UnixNano(),
 			pathwayLatency: now.Sub(p.pathwayStart).Nanoseconds(),
 			edgeLatency:    now.Sub(p.edgeStart).Nanoseconds(),
+			fanOut:         fanOut,
 		}:
 		default:
 			atomic.AddInt64(&aggregator.stats.dropped, 1)
