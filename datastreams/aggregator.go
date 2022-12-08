@@ -159,10 +159,10 @@ func (a *aggregator) addToBuckets(point statsPoint, btime int64, buckets map[int
 }
 
 func (a *aggregator) add(point statsPoint) {
-	currentBucketTime := alignTs(point.timestamp, bucketDuration.Nanoseconds())
 	originTimestamp := point.timestamp - point.pathwayLatency
 	originBucketTime := alignTs(originTimestamp, bucketDuration.Nanoseconds())
 	a.addToBuckets(point, originBucketTime, a.tsTypeOriginBuckets)
+	currentBucketTime := alignTs(point.timestamp, bucketDuration.Nanoseconds())
 	if !point.ignoreLatencies {
 		// we count fan in and outs only for origin bucket time
 		point.fanOut = false

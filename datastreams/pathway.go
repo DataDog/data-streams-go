@@ -51,6 +51,12 @@ func Merge(pathways []Pathway) Pathway {
 	if aggregator := getGlobalAggregator(); aggregator != nil {
 		for i, p := range pathways {
 			if i != n {
+				fanOut := false
+				if atomic.AddInt32(p.nChildren, 1) > 1 {
+					// this context has been duplicated, and is merged again
+					// it's both a fan-in and fan-out
+					fanOut = true
+				}
 				select {
 				case aggregator.in <- statsPoint{
 					// we hope that the point will already be in the store (I believe it should be since this pathway was
@@ -60,6 +66,7 @@ func Merge(pathways []Pathway) Pathway {
 					// we pass this latency so we can compute origin timestamp
 					pathwayLatency:  now.Sub(p.pathwayStart).Nanoseconds(),
 					fanIn:           true,
+					fanOut:          fanOut,
 					ignoreLatencies: true,
 				}:
 				default:
