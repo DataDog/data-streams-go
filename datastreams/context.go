@@ -66,3 +66,17 @@ func MergeContexts(ctxs ...context.Context) context.Context {
 	}
 	return ContextWithPathway(ctxs[0], Merge(pathways))
 }
+
+// DropPayloadInContext drops the data streams payload in the context if there is one
+// This allows to keep track of dropped payloads, and we can that way know if we drop any payloads that we don't know about.
+func DropPayloadInContext(ctx context.Context, reason string) bool {
+	if ctx == nil {
+		return false
+	}
+	p, ok := PathwayFromContext(ctx)
+	if !ok {
+		return false
+	}
+	p.Drop(reason)
+	return true
+}
