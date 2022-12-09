@@ -38,6 +38,7 @@ type statsPoint struct {
 	edgeLatency     int64
 	fanOut          bool
 	fanIn           bool
+	dropped         bool
 	ignoreLatencies bool
 }
 
@@ -50,6 +51,7 @@ type statsGroup struct {
 	edgeLatency    *ddsketch.DDSketch
 	fanOuts        int64
 	fanIns         int64
+	dropped        int64
 }
 
 type bucket map[uint64]statsGroup
@@ -77,6 +79,7 @@ func (b bucket) export(timestampType TimestampType) []StatsPoint {
 			TimestampType:  timestampType,
 			FanIns:         s.fanIns,
 			FanOuts:        s.fanOuts,
+			Dropped:        s.dropped,
 		})
 	}
 	return stats
@@ -109,7 +112,7 @@ func newAggregator(statsd statsd.ClientInterface, env, primaryTag, service, agen
 	return &aggregator{
 		tsTypeCurrentBuckets: make(map[int64]bucket),
 		tsTypeOriginBuckets:  make(map[int64]bucket),
-		in:                   make(chan statsPoint, 10000),
+		in:                   make(chan statsPoint, 100000),
 		stopped:              1,
 		statsd:               statsd,
 		env:                  env,
@@ -139,6 +142,7 @@ func (a *aggregator) addToBuckets(point statsPoint, btime int64, buckets map[int
 			edgeLatency:    ddsketch.NewDDSketch(sketchMapping, store.DenseStoreConstructor(), store.DenseStoreConstructor()),
 			fanOuts:        0,
 			fanIns:         0,
+			dropped:        0,
 		}
 	}
 	if point.fanOut {
@@ -146,6 +150,9 @@ func (a *aggregator) addToBuckets(point statsPoint, btime int64, buckets map[int
 	}
 	if point.fanIn {
 		group.fanIns++
+	}
+	if point.dropped {
+		group.dropped++
 	}
 	if !point.ignoreLatencies {
 		if err := group.pathwayLatency.Add(math.Max(float64(point.pathwayLatency)/float64(time.Second), 0)); err != nil {

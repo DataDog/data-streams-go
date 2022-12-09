@@ -127,6 +127,35 @@ func newPathway(now time.Time, edgeTags ...string) Pathway {
 	return p.setCheckpoint(now, edgeTags)
 }
 
+func (p Pathway) Drop(reason string) {
+	// todo[piochelepiotr] Do something with reason
+	// we should probably have access to the edge tags here, and be able to add the reason
+	now := time.Now()
+	if aggregator := getGlobalAggregator(); aggregator != nil {
+		fanOut := false
+		if atomic.AddInt32(p.nChildren, 1) > 1 {
+			// this context has been duplicated, and is merged again
+			// it's a dropped payload, but following a fan-out
+			fanOut = true
+		}
+		select {
+		case aggregator.in <- statsPoint{
+			// we hope that the point will already be in the store (I believe it should be since this pathway was
+			// created before
+			hash:      p.hash,
+			timestamp: now.UnixNano(),
+			// we pass this latency so we can compute origin timestamp
+			pathwayLatency:  now.Sub(p.pathwayStart).Nanoseconds(),
+			dropped:         true,
+			fanOut:          fanOut,
+			ignoreLatencies: true,
+		}:
+		default:
+			atomic.AddInt64(&aggregator.stats.dropped, 1)
+		}
+	}
+}
+
 // SetCheckpoint sets a checkpoint on a pathway.
 func (p Pathway) SetCheckpoint(edgeTags ...string) Pathway {
 	return p.setCheckpoint(time.Now(), edgeTags)

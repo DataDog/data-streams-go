@@ -53,5 +53,6 @@ type StatsPoint struct {
 	EdgeLatency    []byte
 	FanIns         int64
 	FanOuts        int64
+	Dropped        int64
 	TimestampType  TimestampType
 }
