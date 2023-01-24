@@ -98,6 +98,10 @@ func (p Pathway) SetCheckpoint(edgeTags ...string) Pathway {
 	return p.setCheckpoint(time.Now(), edgeTags)
 }
 
+func (p Pathway) GetHash() uint64 {
+	return p.hash
+}
+
 func (p Pathway) setCheckpoint(now time.Time, edgeTags []string) Pathway {
 	aggr := getGlobalAggregator()
 	service := defaultServiceName
