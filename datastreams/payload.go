@@ -20,7 +20,29 @@ type StatsPayload struct {
 	// TracerVersion is the version of the tracer
 	TracerVersion string
 	// Lang is the language of the tracer
-	Lang string
+	Lang  string
+	Kafka *Kafka
+}
+
+// Kafka holds all the data specific to Kafka, like commit offset, and produced offset
+type Kafka struct {
+	LatestCommitOffsets  []CommitOffset
+	LatestProduceOffsets []ProduceOffset
+}
+
+type ProduceOffset struct {
+	topic     string
+	partition int32
+	offset    int64
+	timeStamp uint64
+}
+
+type CommitOffset struct {
+	topic         string
+	partition     int32
+	offset        int64
+	consumerGroup string
+	timeStamp     uint64
 }
 
 // StatsBucket specifies a set of stats computed over a duration.

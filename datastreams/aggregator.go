@@ -83,8 +83,35 @@ type aggregatorStats struct {
 	dropped         int64
 }
 
+type partitionKey struct {
+	partition int32
+	topic     string
+}
+
+type partitionConsumerKey struct {
+	partition int32
+	topic     string
+	group     string
+}
+
+type offsetType int
+
+const (
+	produceOffset offsetType = iota
+	commitOffset
+)
+
+type kafkaOffset struct {
+	offset     int64
+	topic      string
+	group      string
+	partition  int32
+	offsetType offsetType
+}
+
 type aggregator struct {
 	in                   chan statsPoint
+	inKafka              chan kafkaOffset
 	tsTypeCurrentBuckets map[int64]bucket
 	tsTypeOriginBuckets  map[int64]bucket
 	wg                   sync.WaitGroup
@@ -96,6 +123,8 @@ type aggregator struct {
 	env                  string
 	primaryTag           string
 	service              string
+	latestCommitOffsets  map[partitionConsumerKey]int64
+	latestProduceOffsets map[partitionKey]int64
 }
 
 func newAggregator(statsd statsd.ClientInterface, env, primaryTag, service, agentAddr string, httpClient *http.Client, site, apiKey string, agentLess bool) *aggregator {
@@ -103,12 +132,15 @@ func newAggregator(statsd statsd.ClientInterface, env, primaryTag, service, agen
 		tsTypeCurrentBuckets: make(map[int64]bucket),
 		tsTypeOriginBuckets:  make(map[int64]bucket),
 		in:                   make(chan statsPoint, 10000),
+		inKafka:              make(chan kafkaOffset, 10000),
 		stopped:              1,
 		statsd:               statsd,
 		env:                  env,
 		primaryTag:           primaryTag,
 		service:              service,
 		transport:            newHTTPTransport(agentAddr, site, apiKey, httpClient, agentLess),
+		latestCommitOffsets:  make(map[partitionConsumerKey]int64),
+		latestProduceOffsets: make(map[partitionKey]int64),
 	}
 }
 
@@ -149,12 +181,29 @@ func (a *aggregator) add(point statsPoint) {
 	a.addToBuckets(point, originBucketTime, a.tsTypeOriginBuckets)
 }
 
+func (a *aggregator) addKafkaOffset(o kafkaOffset) {
+	if o.offsetType == produceOffset {
+		a.latestProduceOffsets[partitionKey{
+			partition: o.partition,
+			topic:     o.topic,
+		}] = o.offset
+		return
+	}
+	a.latestCommitOffsets[partitionConsumerKey{
+		partition: o.partition,
+		group:     o.group,
+		topic:     o.topic,
+	}] = o.offset
+}
+
 func (a *aggregator) run(tick <-chan time.Time) {
 	for {
 		select {
 		case s := <-a.in:
 			atomic.AddInt64(&a.stats.payloadsIn, 1)
 			a.add(s)
+		case o := <-a.inKafka:
+			a.addKafkaOffset(o)
 		case now := <-tick:
 			a.sendToAgent(a.flush(now))
 		case <-a.stop:
@@ -229,6 +278,10 @@ func (a *aggregator) flush(now time.Time) StatsPayload {
 		Lang:          "go",
 		TracerVersion: version.Tag,
 		Stats:         make([]StatsBucket, 0, len(a.tsTypeCurrentBuckets)+len(a.tsTypeOriginBuckets)),
+		Kafka: &Kafka{
+			LatestProduceOffsets: make([]ProduceOffset, 0),
+			LatestCommitOffsets:  make([]CommitOffset, 0),
+		},
 	}
 	for ts := range a.tsTypeCurrentBuckets {
 		if ts > nowNano-bucketDuration.Nanoseconds() {
@@ -244,6 +297,14 @@ func (a *aggregator) flush(now time.Time) StatsPayload {
 		}
 		sp.Stats = append(sp.Stats, a.flushBucket(a.tsTypeOriginBuckets, ts, TIMESTAMP_TYPE_ORIGIN))
 	}
+	for key, offset := range a.latestProduceOffsets {
+		sp.Kafka.LatestProduceOffsets = append(sp.Kafka.LatestProduceOffsets, ProduceOffset{topic: key.topic, partition: key.partition, offset: offset, timeStamp: uint64(nowNano)})
+	}
+	for key, offset := range a.latestCommitOffsets {
+		sp.Kafka.LatestCommitOffsets = append(sp.Kafka.LatestCommitOffsets, CommitOffset{consumerGroup: key.group, topic: key.topic, partition: key.partition, offset: offset, timeStamp: uint64(nowNano)})
+	}
+	a.latestCommitOffsets = make(map[partitionConsumerKey]int64)
+	a.latestProduceOffsets = make(map[partitionKey]int64)
 	return sp
 }
 

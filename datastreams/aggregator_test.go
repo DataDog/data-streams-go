@@ -64,6 +64,10 @@ func TestAggregator(t *testing.T) {
 		pathwayLatency: (5 * time.Second).Nanoseconds(),
 		edgeLatency:    (2 * time.Second).Nanoseconds(),
 	})
+	emptyKafka := Kafka{
+		LatestProduceOffsets: []ProduceOffset{},
+		LatestCommitOffsets:  []CommitOffset{},
+	}
 	// flush at tp2 doesn't flush points at tp2 (current bucket)
 	assert.Equal(t, StatsPayload{
 		Env:        "env",
@@ -97,6 +101,7 @@ func TestAggregator(t *testing.T) {
 		},
 		TracerVersion: "v0.3",
 		Lang:          "go",
+		Kafka:         &emptyKafka,
 	}, p.flush(tp2))
 
 	sp := p.flush(tp2.Add(bucketDuration).Add(time.Second))
@@ -155,5 +160,46 @@ func TestAggregator(t *testing.T) {
 		},
 		TracerVersion: "v0.3",
 		Lang:          "go",
+		Kafka:         &emptyKafka,
 	}, sp)
+}
+
+func TestKafkaLag(t *testing.T) {
+	a := newAggregator(nil, "env", "datacenter:us1.prod.dog", "service", "agent-addr", nil, "datadoghq.com", "key", true)
+	tp1 := time.Now()
+	a.addKafkaOffset(kafkaOffset{offset: 1, topic: "topic1", partition: 1, group: "group1", offsetType: commitOffset})
+	a.addKafkaOffset(kafkaOffset{offset: 10, topic: "topic2", partition: 1, group: "group1", offsetType: commitOffset})
+	a.addKafkaOffset(kafkaOffset{offset: 5, topic: "topic1", partition: 1, offsetType: produceOffset})
+	a.addKafkaOffset(kafkaOffset{offset: 15, topic: "topic1", partition: 1, offsetType: produceOffset})
+	p := a.flush(tp1)
+	sort.Slice(p.Kafka.LatestCommitOffsets, func(i, j int) bool {
+		return p.Kafka.LatestCommitOffsets[i].topic < p.Kafka.LatestCommitOffsets[j].topic
+	})
+	expectedKafka := Kafka{
+		LatestProduceOffsets: []ProduceOffset{
+			{
+				topic:     "topic1",
+				partition: 1,
+				offset:    15,
+				timeStamp: uint64(tp1.UnixNano()),
+			},
+		},
+		LatestCommitOffsets: []CommitOffset{
+			{
+				topic:         "topic1",
+				consumerGroup: "group1",
+				partition:     1,
+				offset:        1,
+				timeStamp:     uint64(tp1.UnixNano()),
+			},
+			{
+				topic:         "topic2",
+				consumerGroup: "group1",
+				partition:     1,
+				offset:        10,
+				timeStamp:     uint64(tp1.UnixNano()),
+			},
+		},
+	}
+	assert.Equal(t, expectedKafka, *p.Kafka)
 }
