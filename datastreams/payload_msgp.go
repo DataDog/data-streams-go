@@ -24,34 +24,28 @@ func (z *CommitOffset) DecodeMsg(dc *msgp.Reader) (err error) {
 			return
 		}
 		switch msgp.UnsafeString(field) {
-		case "topic":
-			z.topic, err = dc.ReadString()
+		case "ConsumerGroup":
+			z.ConsumerGroup, err = dc.ReadString()
 			if err != nil {
-				err = msgp.WrapError(err, "topic")
+				err = msgp.WrapError(err, "ConsumerGroup")
 				return
 			}
-		case "partition":
-			z.partition, err = dc.ReadInt32()
+		case "Topic":
+			z.Topic, err = dc.ReadString()
 			if err != nil {
-				err = msgp.WrapError(err, "partition")
+				err = msgp.WrapError(err, "Topic")
 				return
 			}
-		case "offset":
-			z.offset, err = dc.ReadInt64()
+		case "Partition":
+			z.Partition, err = dc.ReadInt32()
 			if err != nil {
-				err = msgp.WrapError(err, "offset")
+				err = msgp.WrapError(err, "Partition")
 				return
 			}
-		case "consumerGroup":
-			z.consumerGroup, err = dc.ReadString()
+		case "Offset":
+			z.Offset, err = dc.ReadInt64()
 			if err != nil {
-				err = msgp.WrapError(err, "consumerGroup")
-				return
-			}
-		case "timeStamp":
-			z.timeStamp, err = dc.ReadUint64()
-			if err != nil {
-				err = msgp.WrapError(err, "timeStamp")
+				err = msgp.WrapError(err, "Offset")
 				return
 			}
 		default:
@@ -67,55 +61,45 @@ func (z *CommitOffset) DecodeMsg(dc *msgp.Reader) (err error) {
 
 // EncodeMsg implements msgp.Encodable
 func (z *CommitOffset) EncodeMsg(en *msgp.Writer) (err error) {
-	// map header, size 5
-	// write "topic"
-	err = en.Append(0x85, 0xa5, 0x74, 0x6f, 0x70, 0x69, 0x63)
+	// map header, size 4
+	// write "ConsumerGroup"
+	err = en.Append(0x84, 0xad, 0x43, 0x6f, 0x6e, 0x73, 0x75, 0x6d, 0x65, 0x72, 0x47, 0x72, 0x6f, 0x75, 0x70)
 	if err != nil {
 		return
 	}
-	err = en.WriteString(z.topic)
+	err = en.WriteString(z.ConsumerGroup)
 	if err != nil {
-		err = msgp.WrapError(err, "topic")
+		err = msgp.WrapError(err, "ConsumerGroup")
 		return
 	}
-	// write "partition"
-	err = en.Append(0xa9, 0x70, 0x61, 0x72, 0x74, 0x69, 0x74, 0x69, 0x6f, 0x6e)
-	if err != nil {
-		return
-	}
-	err = en.WriteInt32(z.partition)
-	if err != nil {
-		err = msgp.WrapError(err, "partition")
-		return
-	}
-	// write "offset"
-	err = en.Append(0xa6, 0x6f, 0x66, 0x66, 0x73, 0x65, 0x74)
+	// write "Topic"
+	err = en.Append(0xa5, 0x54, 0x6f, 0x70, 0x69, 0x63)
 	if err != nil {
 		return
 	}
-	err = en.WriteInt64(z.offset)
+	err = en.WriteString(z.Topic)
 	if err != nil {
-		err = msgp.WrapError(err, "offset")
+		err = msgp.WrapError(err, "Topic")
 		return
 	}
-	// write "consumerGroup"
-	err = en.Append(0xad, 0x63, 0x6f, 0x6e, 0x73, 0x75, 0x6d, 0x65, 0x72, 0x47, 0x72, 0x6f, 0x75, 0x70)
-	if err != nil {
-		return
-	}
-	err = en.WriteString(z.consumerGroup)
-	if err != nil {
-		err = msgp.WrapError(err, "consumerGroup")
-		return
-	}
-	// write "timeStamp"
-	err = en.Append(0xa9, 0x74, 0x69, 0x6d, 0x65, 0x53, 0x74, 0x61, 0x6d, 0x70)
+	// write "Partition"
+	err = en.Append(0xa9, 0x50, 0x61, 0x72, 0x74, 0x69, 0x74, 0x69, 0x6f, 0x6e)
 	if err != nil {
 		return
 	}
-	err = en.WriteUint64(z.timeStamp)
+	err = en.WriteInt32(z.Partition)
 	if err != nil {
-		err = msgp.WrapError(err, "timeStamp")
+		err = msgp.WrapError(err, "Partition")
+		return
+	}
+	// write "Offset"
+	err = en.Append(0xa6, 0x4f, 0x66, 0x66, 0x73, 0x65, 0x74)
+	if err != nil {
+		return
+	}
+	err = en.WriteInt64(z.Offset)
+	if err != nil {
+		err = msgp.WrapError(err, "Offset")
 		return
 	}
 	return
@@ -123,7 +107,7 @@ func (z *CommitOffset) EncodeMsg(en *msgp.Writer) (err error) {
 
 // Msgsize returns an upper bound estimate of the number of bytes occupied by the serialized message
 func (z *CommitOffset) Msgsize() (s int) {
-	s = 1 + 6 + msgp.StringPrefixSize + len(z.topic) + 10 + msgp.Int32Size + 7 + msgp.Int64Size + 14 + msgp.StringPrefixSize + len(z.consumerGroup) + 10 + msgp.Uint64Size
+	s = 1 + 14 + msgp.StringPrefixSize + len(z.ConsumerGroup) + 6 + msgp.StringPrefixSize + len(z.Topic) + 10 + msgp.Int32Size + 7 + msgp.Int64Size
 	return
 }
 
@@ -177,10 +161,45 @@ func (z *Kafka) DecodeMsg(dc *msgp.Reader) (err error) {
 				z.LatestProduceOffsets = make([]ProduceOffset, zb0003)
 			}
 			for za0002 := range z.LatestProduceOffsets {
-				err = z.LatestProduceOffsets[za0002].DecodeMsg(dc)
+				var zb0004 uint32
+				zb0004, err = dc.ReadMapHeader()
 				if err != nil {
 					err = msgp.WrapError(err, "LatestProduceOffsets", za0002)
 					return
+				}
+				for zb0004 > 0 {
+					zb0004--
+					field, err = dc.ReadMapKeyPtr()
+					if err != nil {
+						err = msgp.WrapError(err, "LatestProduceOffsets", za0002)
+						return
+					}
+					switch msgp.UnsafeString(field) {
+					case "Topic":
+						z.LatestProduceOffsets[za0002].Topic, err = dc.ReadString()
+						if err != nil {
+							err = msgp.WrapError(err, "LatestProduceOffsets", za0002, "Topic")
+							return
+						}
+					case "Partition":
+						z.LatestProduceOffsets[za0002].Partition, err = dc.ReadInt32()
+						if err != nil {
+							err = msgp.WrapError(err, "LatestProduceOffsets", za0002, "Partition")
+							return
+						}
+					case "Offset":
+						z.LatestProduceOffsets[za0002].Offset, err = dc.ReadInt64()
+						if err != nil {
+							err = msgp.WrapError(err, "LatestProduceOffsets", za0002, "Offset")
+							return
+						}
+					default:
+						err = dc.Skip()
+						if err != nil {
+							err = msgp.WrapError(err, "LatestProduceOffsets", za0002)
+							return
+						}
+					}
 				}
 			}
 		default:
@@ -225,9 +244,35 @@ func (z *Kafka) EncodeMsg(en *msgp.Writer) (err error) {
 		return
 	}
 	for za0002 := range z.LatestProduceOffsets {
-		err = z.LatestProduceOffsets[za0002].EncodeMsg(en)
+		// map header, size 3
+		// write "Topic"
+		err = en.Append(0x83, 0xa5, 0x54, 0x6f, 0x70, 0x69, 0x63)
 		if err != nil {
-			err = msgp.WrapError(err, "LatestProduceOffsets", za0002)
+			return
+		}
+		err = en.WriteString(z.LatestProduceOffsets[za0002].Topic)
+		if err != nil {
+			err = msgp.WrapError(err, "LatestProduceOffsets", za0002, "Topic")
+			return
+		}
+		// write "Partition"
+		err = en.Append(0xa9, 0x50, 0x61, 0x72, 0x74, 0x69, 0x74, 0x69, 0x6f, 0x6e)
+		if err != nil {
+			return
+		}
+		err = en.WriteInt32(z.LatestProduceOffsets[za0002].Partition)
+		if err != nil {
+			err = msgp.WrapError(err, "LatestProduceOffsets", za0002, "Partition")
+			return
+		}
+		// write "Offset"
+		err = en.Append(0xa6, 0x4f, 0x66, 0x66, 0x73, 0x65, 0x74)
+		if err != nil {
+			return
+		}
+		err = en.WriteInt64(z.LatestProduceOffsets[za0002].Offset)
+		if err != nil {
+			err = msgp.WrapError(err, "LatestProduceOffsets", za0002, "Offset")
 			return
 		}
 	}
@@ -242,7 +287,7 @@ func (z *Kafka) Msgsize() (s int) {
 	}
 	s += 21 + msgp.ArrayHeaderSize
 	for za0002 := range z.LatestProduceOffsets {
-		s += z.LatestProduceOffsets[za0002].Msgsize()
+		s += 1 + 6 + msgp.StringPrefixSize + len(z.LatestProduceOffsets[za0002].Topic) + 10 + msgp.Int32Size + 7 + msgp.Int64Size
 	}
 	return
 }
@@ -265,28 +310,22 @@ func (z *ProduceOffset) DecodeMsg(dc *msgp.Reader) (err error) {
 			return
 		}
 		switch msgp.UnsafeString(field) {
-		case "topic":
-			z.topic, err = dc.ReadString()
+		case "Topic":
+			z.Topic, err = dc.ReadString()
 			if err != nil {
-				err = msgp.WrapError(err, "topic")
+				err = msgp.WrapError(err, "Topic")
 				return
 			}
-		case "partition":
-			z.partition, err = dc.ReadInt32()
+		case "Partition":
+			z.Partition, err = dc.ReadInt32()
 			if err != nil {
-				err = msgp.WrapError(err, "partition")
+				err = msgp.WrapError(err, "Partition")
 				return
 			}
-		case "offset":
-			z.offset, err = dc.ReadInt64()
+		case "Offset":
+			z.Offset, err = dc.ReadInt64()
 			if err != nil {
-				err = msgp.WrapError(err, "offset")
-				return
-			}
-		case "timeStamp":
-			z.timeStamp, err = dc.ReadUint64()
-			if err != nil {
-				err = msgp.WrapError(err, "timeStamp")
+				err = msgp.WrapError(err, "Offset")
 				return
 			}
 		default:
@@ -301,54 +340,44 @@ func (z *ProduceOffset) DecodeMsg(dc *msgp.Reader) (err error) {
 }
 
 // EncodeMsg implements msgp.Encodable
-func (z *ProduceOffset) EncodeMsg(en *msgp.Writer) (err error) {
-	// map header, size 4
-	// write "topic"
-	err = en.Append(0x84, 0xa5, 0x74, 0x6f, 0x70, 0x69, 0x63)
+func (z ProduceOffset) EncodeMsg(en *msgp.Writer) (err error) {
+	// map header, size 3
+	// write "Topic"
+	err = en.Append(0x83, 0xa5, 0x54, 0x6f, 0x70, 0x69, 0x63)
 	if err != nil {
 		return
 	}
-	err = en.WriteString(z.topic)
+	err = en.WriteString(z.Topic)
 	if err != nil {
-		err = msgp.WrapError(err, "topic")
+		err = msgp.WrapError(err, "Topic")
 		return
 	}
-	// write "partition"
-	err = en.Append(0xa9, 0x70, 0x61, 0x72, 0x74, 0x69, 0x74, 0x69, 0x6f, 0x6e)
-	if err != nil {
-		return
-	}
-	err = en.WriteInt32(z.partition)
-	if err != nil {
-		err = msgp.WrapError(err, "partition")
-		return
-	}
-	// write "offset"
-	err = en.Append(0xa6, 0x6f, 0x66, 0x66, 0x73, 0x65, 0x74)
+	// write "Partition"
+	err = en.Append(0xa9, 0x50, 0x61, 0x72, 0x74, 0x69, 0x74, 0x69, 0x6f, 0x6e)
 	if err != nil {
 		return
 	}
-	err = en.WriteInt64(z.offset)
+	err = en.WriteInt32(z.Partition)
 	if err != nil {
-		err = msgp.WrapError(err, "offset")
+		err = msgp.WrapError(err, "Partition")
 		return
 	}
-	// write "timeStamp"
-	err = en.Append(0xa9, 0x74, 0x69, 0x6d, 0x65, 0x53, 0x74, 0x61, 0x6d, 0x70)
+	// write "Offset"
+	err = en.Append(0xa6, 0x4f, 0x66, 0x66, 0x73, 0x65, 0x74)
 	if err != nil {
 		return
 	}
-	err = en.WriteUint64(z.timeStamp)
+	err = en.WriteInt64(z.Offset)
 	if err != nil {
-		err = msgp.WrapError(err, "timeStamp")
+		err = msgp.WrapError(err, "Offset")
 		return
 	}
 	return
 }
 
 // Msgsize returns an upper bound estimate of the number of bytes occupied by the serialized message
-func (z *ProduceOffset) Msgsize() (s int) {
-	s = 1 + 6 + msgp.StringPrefixSize + len(z.topic) + 10 + msgp.Int32Size + 7 + msgp.Int64Size + 10 + msgp.Uint64Size
+func (z ProduceOffset) Msgsize() (s int) {
+	s = 1 + 6 + msgp.StringPrefixSize + len(z.Topic) + 10 + msgp.Int32Size + 7 + msgp.Int64Size
 	return
 }
 
@@ -401,6 +430,12 @@ func (z *StatsBucket) DecodeMsg(dc *msgp.Reader) (err error) {
 					return
 				}
 			}
+		case "Kafka":
+			err = z.Kafka.DecodeMsg(dc)
+			if err != nil {
+				err = msgp.WrapError(err, "Kafka")
+				return
+			}
 		default:
 			err = dc.Skip()
 			if err != nil {
@@ -414,9 +449,9 @@ func (z *StatsBucket) DecodeMsg(dc *msgp.Reader) (err error) {
 
 // EncodeMsg implements msgp.Encodable
 func (z *StatsBucket) EncodeMsg(en *msgp.Writer) (err error) {
-	// map header, size 3
+	// map header, size 4
 	// write "Start"
-	err = en.Append(0x83, 0xa5, 0x53, 0x74, 0x61, 0x72, 0x74)
+	err = en.Append(0x84, 0xa5, 0x53, 0x74, 0x61, 0x72, 0x74)
 	if err != nil {
 		return
 	}
@@ -452,6 +487,16 @@ func (z *StatsBucket) EncodeMsg(en *msgp.Writer) (err error) {
 			return
 		}
 	}
+	// write "Kafka"
+	err = en.Append(0xa5, 0x4b, 0x61, 0x66, 0x6b, 0x61)
+	if err != nil {
+		return
+	}
+	err = z.Kafka.EncodeMsg(en)
+	if err != nil {
+		err = msgp.WrapError(err, "Kafka")
+		return
+	}
 	return
 }
 
@@ -461,6 +506,7 @@ func (z *StatsBucket) Msgsize() (s int) {
 	for za0001 := range z.Stats {
 		s += z.Stats[za0001].Msgsize()
 	}
+	s += 6 + z.Kafka.Msgsize()
 	return
 }
 
@@ -531,24 +577,6 @@ func (z *StatsPayload) DecodeMsg(dc *msgp.Reader) (err error) {
 				err = msgp.WrapError(err, "Lang")
 				return
 			}
-		case "Kafka":
-			if dc.IsNil() {
-				err = dc.ReadNil()
-				if err != nil {
-					err = msgp.WrapError(err, "Kafka")
-					return
-				}
-				z.Kafka = nil
-			} else {
-				if z.Kafka == nil {
-					z.Kafka = new(Kafka)
-				}
-				err = z.Kafka.DecodeMsg(dc)
-				if err != nil {
-					err = msgp.WrapError(err, "Kafka")
-					return
-				}
-			}
 		default:
 			err = dc.Skip()
 			if err != nil {
@@ -562,9 +590,9 @@ func (z *StatsPayload) DecodeMsg(dc *msgp.Reader) (err error) {
 
 // EncodeMsg implements msgp.Encodable
 func (z *StatsPayload) EncodeMsg(en *msgp.Writer) (err error) {
-	// map header, size 7
+	// map header, size 6
 	// write "Env"
-	err = en.Append(0x87, 0xa3, 0x45, 0x6e, 0x76)
+	err = en.Append(0x86, 0xa3, 0x45, 0x6e, 0x76)
 	if err != nil {
 		return
 	}
@@ -630,23 +658,6 @@ func (z *StatsPayload) EncodeMsg(en *msgp.Writer) (err error) {
 		err = msgp.WrapError(err, "Lang")
 		return
 	}
-	// write "Kafka"
-	err = en.Append(0xa5, 0x4b, 0x61, 0x66, 0x6b, 0x61)
-	if err != nil {
-		return
-	}
-	if z.Kafka == nil {
-		err = en.WriteNil()
-		if err != nil {
-			return
-		}
-	} else {
-		err = z.Kafka.EncodeMsg(en)
-		if err != nil {
-			err = msgp.WrapError(err, "Kafka")
-			return
-		}
-	}
 	return
 }
 
@@ -656,12 +667,7 @@ func (z *StatsPayload) Msgsize() (s int) {
 	for za0001 := range z.Stats {
 		s += z.Stats[za0001].Msgsize()
 	}
-	s += 14 + msgp.StringPrefixSize + len(z.TracerVersion) + 5 + msgp.StringPrefixSize + len(z.Lang) + 6
-	if z.Kafka == nil {
-		s += msgp.NilSize
-	} else {
-		s += z.Kafka.Msgsize()
-	}
+	s += 14 + msgp.StringPrefixSize + len(z.TracerVersion) + 5 + msgp.StringPrefixSize + len(z.Lang)
 	return
 }
 

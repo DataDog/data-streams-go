@@ -47,11 +47,27 @@ type statsGroup struct {
 	edgeLatency    *ddsketch.DDSketch
 }
 
-type bucket map[uint64]statsGroup
+type bucket struct {
+	points               map[uint64]statsGroup
+	latestCommitOffsets  map[partitionConsumerKey]int64
+	latestProduceOffsets map[partitionKey]int64
+	start                uint64
+	duration             uint64
+}
 
-func (b bucket) export(timestampType TimestampType) []StatsPoint {
-	stats := make([]StatsPoint, 0, len(b))
-	for _, s := range b {
+func newBucket(start, duration uint64) bucket {
+	return bucket{
+		points:               make(map[uint64]statsGroup),
+		latestCommitOffsets:  make(map[partitionConsumerKey]int64),
+		latestProduceOffsets: make(map[partitionKey]int64),
+		start:                start,
+		duration:             duration,
+	}
+}
+
+func (b bucket) export(timestampType TimestampType) StatsBucket {
+	stats := make([]StatsPoint, 0, len(b.points))
+	for _, s := range b.points {
 		pathwayLatency, err := proto.Marshal(s.pathwayLatency.ToProto())
 		if err != nil {
 			log.Printf("ERROR: can't serialize pathway latency. Ignoring: %v", err)
@@ -72,7 +88,22 @@ func (b bucket) export(timestampType TimestampType) []StatsPoint {
 			TimestampType:  timestampType,
 		})
 	}
-	return stats
+	exported := StatsBucket{
+		Start:    b.start,
+		Duration: b.duration,
+		Stats:    stats,
+		Kafka: Kafka{
+			LatestProduceOffsets: make([]ProduceOffset, 0, len(b.latestProduceOffsets)),
+			LatestCommitOffsets:  make([]CommitOffset, 0, len(b.latestCommitOffsets)),
+		},
+	}
+	for key, offset := range b.latestProduceOffsets {
+		exported.Kafka.LatestProduceOffsets = append(exported.Kafka.LatestProduceOffsets, ProduceOffset{Topic: key.topic, Partition: key.partition, Offset: offset})
+	}
+	for key, offset := range b.latestCommitOffsets {
+		exported.Kafka.LatestCommitOffsets = append(exported.Kafka.LatestCommitOffsets, CommitOffset{ConsumerGroup: key.group, Topic: key.topic, Partition: key.partition, Offset: offset})
+	}
+	return exported
 }
 
 type aggregatorStats struct {
@@ -107,6 +138,7 @@ type kafkaOffset struct {
 	group      string
 	partition  int32
 	offsetType offsetType
+	timestamp  int64
 }
 
 type aggregator struct {
@@ -123,8 +155,6 @@ type aggregator struct {
 	env                  string
 	primaryTag           string
 	service              string
-	latestCommitOffsets  map[partitionConsumerKey]int64
-	latestProduceOffsets map[partitionKey]int64
 }
 
 func newAggregator(statsd statsd.ClientInterface, env, primaryTag, service, agentAddr string, httpClient *http.Client, site, apiKey string, agentLess bool) *aggregator {
@@ -139,8 +169,6 @@ func newAggregator(statsd statsd.ClientInterface, env, primaryTag, service, agen
 		primaryTag:           primaryTag,
 		service:              service,
 		transport:            newHTTPTransport(agentAddr, site, apiKey, httpClient, agentLess),
-		latestCommitOffsets:  make(map[partitionConsumerKey]int64),
-		latestProduceOffsets: make(map[partitionKey]int64),
 	}
 }
 
@@ -148,13 +176,17 @@ func newAggregator(statsd statsd.ClientInterface, env, primaryTag, service, agen
 // It gives us the start time of the time bucket in which such timestamp falls.
 func alignTs(ts, bucketSize int64) int64 { return ts - ts%bucketSize }
 
-func (a *aggregator) addToBuckets(point statsPoint, btime int64, buckets map[int64]bucket) {
+func (a *aggregator) getBucket(btime int64, buckets map[int64]bucket) bucket {
 	b, ok := buckets[btime]
 	if !ok {
-		b = make(bucket)
+		b = newBucket(uint64(btime), uint64(bucketDuration.Nanoseconds()))
 		buckets[btime] = b
 	}
-	group, ok := b[point.hash]
+	return b
+}
+func (a *aggregator) addToBuckets(point statsPoint, btime int64, buckets map[int64]bucket) {
+	b := a.getBucket(btime, buckets)
+	group, ok := b.points[point.hash]
 	if !ok {
 		group = statsGroup{
 			edgeTags:       point.edgeTags,
@@ -163,7 +195,7 @@ func (a *aggregator) addToBuckets(point statsPoint, btime int64, buckets map[int
 			pathwayLatency: ddsketch.NewDDSketch(sketchMapping, store.DenseStoreConstructor(), store.DenseStoreConstructor()),
 			edgeLatency:    ddsketch.NewDDSketch(sketchMapping, store.DenseStoreConstructor(), store.DenseStoreConstructor()),
 		}
-		b[point.hash] = group
+		b.points[point.hash] = group
 	}
 	if err := group.pathwayLatency.Add(math.Max(float64(point.pathwayLatency)/float64(time.Second), 0)); err != nil {
 		log.Printf("ERROR: failed to add pathway latency. Ignoring %v.", err)
@@ -182,14 +214,16 @@ func (a *aggregator) add(point statsPoint) {
 }
 
 func (a *aggregator) addKafkaOffset(o kafkaOffset) {
+	btime := alignTs(o.timestamp, bucketDuration.Nanoseconds())
+	b := a.getBucket(btime, a.tsTypeCurrentBuckets)
 	if o.offsetType == produceOffset {
-		a.latestProduceOffsets[partitionKey{
+		b.latestProduceOffsets[partitionKey{
 			partition: o.partition,
 			topic:     o.topic,
 		}] = o.offset
 		return
 	}
-	a.latestCommitOffsets[partitionConsumerKey{
+	b.latestCommitOffsets[partitionConsumerKey{
 		partition: o.partition,
 		group:     o.group,
 		topic:     o.topic,
@@ -262,11 +296,7 @@ func (a *aggregator) runFlusher() {
 func (a *aggregator) flushBucket(buckets map[int64]bucket, bucketStart int64, timestampType TimestampType) StatsBucket {
 	bucket := buckets[bucketStart]
 	delete(buckets, bucketStart)
-	return StatsBucket{
-		Start:    uint64(bucketStart),
-		Duration: uint64(bucketDuration.Nanoseconds()),
-		Stats:    bucket.export(timestampType),
-	}
+	return bucket.export(timestampType)
 }
 
 func (a *aggregator) flush(now time.Time) StatsPayload {
@@ -278,33 +308,21 @@ func (a *aggregator) flush(now time.Time) StatsPayload {
 		Lang:          "go",
 		TracerVersion: version.Tag,
 		Stats:         make([]StatsBucket, 0, len(a.tsTypeCurrentBuckets)+len(a.tsTypeOriginBuckets)),
-		Kafka: &Kafka{
-			LatestProduceOffsets: make([]ProduceOffset, 0),
-			LatestCommitOffsets:  make([]CommitOffset, 0),
-		},
 	}
 	for ts := range a.tsTypeCurrentBuckets {
 		if ts > nowNano-bucketDuration.Nanoseconds() {
 			// do not flush the bucket at the current time
 			continue
 		}
-		sp.Stats = append(sp.Stats, a.flushBucket(a.tsTypeCurrentBuckets, ts, TIMESTAMP_TYPE_CURRENT))
+		sp.Stats = append(sp.Stats, a.flushBucket(a.tsTypeCurrentBuckets, ts, TimestampTypeCurrent))
 	}
 	for ts := range a.tsTypeOriginBuckets {
 		if ts > nowNano-bucketDuration.Nanoseconds() {
 			// do not flush the bucket at the current time
 			continue
 		}
-		sp.Stats = append(sp.Stats, a.flushBucket(a.tsTypeOriginBuckets, ts, TIMESTAMP_TYPE_ORIGIN))
+		sp.Stats = append(sp.Stats, a.flushBucket(a.tsTypeOriginBuckets, ts, TimestampTypeOrigin))
 	}
-	for key, offset := range a.latestProduceOffsets {
-		sp.Kafka.LatestProduceOffsets = append(sp.Kafka.LatestProduceOffsets, ProduceOffset{topic: key.topic, partition: key.partition, offset: offset, timeStamp: uint64(nowNano)})
-	}
-	for key, offset := range a.latestCommitOffsets {
-		sp.Kafka.LatestCommitOffsets = append(sp.Kafka.LatestCommitOffsets, CommitOffset{consumerGroup: key.group, topic: key.topic, partition: key.partition, offset: offset, timeStamp: uint64(nowNano)})
-	}
-	a.latestCommitOffsets = make(map[partitionConsumerKey]int64)
-	a.latestProduceOffsets = make(map[partitionKey]int64)
 	return sp
 }
 
