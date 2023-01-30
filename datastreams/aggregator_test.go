@@ -64,6 +64,10 @@ func TestAggregator(t *testing.T) {
 		pathwayLatency: (5 * time.Second).Nanoseconds(),
 		edgeLatency:    (2 * time.Second).Nanoseconds(),
 	})
+	emptyKafka := Kafka{
+		LatestProduceOffsets: []ProduceOffset{},
+		LatestCommitOffsets:  []CommitOffset{},
+	}
 	// flush at tp2 doesn't flush points at tp2 (current bucket)
 	assert.Equal(t, StatsPayload{
 		Env:        "env",
@@ -81,6 +85,7 @@ func TestAggregator(t *testing.T) {
 					EdgeLatency:    buildSketch(2),
 					TimestampType:  "current",
 				}},
+				Kafka: emptyKafka,
 			},
 			{
 				Start:    uint64(alignTs(tp1.UnixNano()-(5*time.Second).Nanoseconds(), bucketDuration.Nanoseconds())),
@@ -93,6 +98,7 @@ func TestAggregator(t *testing.T) {
 					EdgeLatency:    buildSketch(2),
 					TimestampType:  "origin",
 				}},
+				Kafka: emptyKafka,
 			},
 		},
 		TracerVersion: "v0.3",
@@ -129,6 +135,7 @@ func TestAggregator(t *testing.T) {
 						TimestampType:  "current",
 					},
 				},
+				Kafka: emptyKafka,
 			},
 			{
 				Start:    uint64(alignTs(tp2.UnixNano()-(5*time.Second).Nanoseconds(), bucketDuration.Nanoseconds())),
@@ -151,9 +158,47 @@ func TestAggregator(t *testing.T) {
 						TimestampType:  "origin",
 					},
 				},
+				Kafka: emptyKafka,
 			},
 		},
 		TracerVersion: "v0.3",
 		Lang:          "go",
 	}, sp)
+}
+
+func TestKafkaLag(t *testing.T) {
+	a := newAggregator(nil, "env", "datacenter:us1.prod.dog", "service", "agent-addr", nil, "datadoghq.com", "key", true)
+	tp1 := time.Now()
+	a.addKafkaOffset(kafkaOffset{offset: 1, topic: "topic1", partition: 1, group: "group1", offsetType: commitOffset})
+	a.addKafkaOffset(kafkaOffset{offset: 10, topic: "topic2", partition: 1, group: "group1", offsetType: commitOffset})
+	a.addKafkaOffset(kafkaOffset{offset: 5, topic: "topic1", partition: 1, offsetType: produceOffset})
+	a.addKafkaOffset(kafkaOffset{offset: 15, topic: "topic1", partition: 1, offsetType: produceOffset})
+	p := a.flush(tp1.Add(bucketDuration * 2))
+	sort.Slice(p.Stats[0].Kafka.LatestCommitOffsets, func(i, j int) bool {
+		return p.Stats[0].Kafka.LatestCommitOffsets[i].Topic < p.Stats[0].Kafka.LatestCommitOffsets[j].Topic
+	})
+	expectedKafka := Kafka{
+		LatestProduceOffsets: []ProduceOffset{
+			{
+				Topic:     "topic1",
+				Partition: 1,
+				Offset:    15,
+			},
+		},
+		LatestCommitOffsets: []CommitOffset{
+			{
+				ConsumerGroup: "group1",
+				Topic:         "topic1",
+				Partition:     1,
+				Offset:        1,
+			},
+			{
+				ConsumerGroup: "group1",
+				Topic:         "topic2",
+				Partition:     1,
+				Offset:        10,
+			},
+		},
+	}
+	assert.Equal(t, expectedKafka, p.Stats[0].Kafka)
 }

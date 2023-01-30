@@ -23,6 +23,25 @@ type StatsPayload struct {
 	Lang string
 }
 
+// Kafka holds all the data specific to Kafka, like commit offset, and produced offset
+type Kafka struct {
+	LatestCommitOffsets  []CommitOffset
+	LatestProduceOffsets []ProduceOffset
+}
+
+type ProduceOffset struct {
+	Topic     string
+	Partition int32
+	Offset    int64
+}
+
+type CommitOffset struct {
+	ConsumerGroup string
+	Topic         string
+	Partition     int32
+	Offset        int64
+}
+
 // StatsBucket specifies a set of stats computed over a duration.
 type StatsBucket struct {
 	// Start specifies the beginning of this bucket in unix nanoseconds.
@@ -31,13 +50,20 @@ type StatsBucket struct {
 	Duration uint64
 	// Stats contains a set of statistics computed for the duration of this bucket.
 	Stats []StatsPoint
+	// Kafka contains information specific to Kafka
+	Kafka Kafka
 }
 
+// TimestampType can be either current or origin.
 type TimestampType string
 
 const (
-	TIMESTAMP_TYPE_CURRENT TimestampType = "current"
-	TIMESTAMP_TYPE_ORIGIN  TimestampType = "origin"
+	// TimestampTypeCurrent is for when the recorded timestamp is based on the
+	// timestamp of the current StatsPoint.
+	TimestampTypeCurrent TimestampType = "current"
+	// TimestampTypeOrigin is for when the recorded timestamp is based on the
+	// time that the first StatsPoint in the pathway is sent out.
+	TimestampTypeOrigin TimestampType = "origin"
 )
 
 // StatsPoint contains a set of statistics grouped under various aggregation keys.
