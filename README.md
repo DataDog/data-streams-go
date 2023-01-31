@@ -30,7 +30,7 @@ datastreams.Start(datastreams.WithAgentAddr("notlocalhost:8126"))
 
 The instrumentation relies on creating checkpoints at various points in your data stream services, recording the pathway that messages take along the way. These pathways are stored within a Go Context, and are passed around via message headers.
 
-### M1 support
+### M1 support of the Kafka instrumentation
 
 On M1 machines, the following parameters are needed when starting the instrumented service:
 ```
