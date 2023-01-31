@@ -32,7 +32,7 @@ The instrumentation relies on creating checkpoints at various points in your dat
 
 ### M1 support of the Kafka instrumentation
 
-On M1 machines, the following parameters are needed when starting the instrumented service:
+This library relies on the [Confluent Kafka Go Library](https://github.com/confluentinc/confluent-kafka-go). On M1 machines, the following parameters are needed when starting the instrumented service:
 ```
 -tags dynamic
 ```
