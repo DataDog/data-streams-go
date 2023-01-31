@@ -29,7 +29,14 @@ datastreams.Start(datastreams.WithAgentAddr("notlocalhost:8126"))
 ```
 
 The instrumentation relies on creating checkpoints at various points in your data stream services, recording the pathway that messages take along the way. These pathways are stored within a Go Context, and are passed around via message headers.
- 
+
+### M1 support
+
+On M1 machines, the following parameters are needed when starting the instrumented service:
+```
+-tags dynamic
+```
+
 ### Kafka
 
 To instrument your data stream services that use Kafka queues, you can use the library provided under `github.com/DataDog/data-streams-go/integrations/kafka`.
