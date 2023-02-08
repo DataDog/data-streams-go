@@ -23,12 +23,6 @@ type StatsPayload struct {
 	Lang string
 }
 
-// Kafka holds all the data specific to Kafka, like commit offset, and produced offset
-type Kafka struct {
-	LatestCommitOffsets  []CommitOffset
-	LatestProduceOffsets []ProduceOffset
-}
-
 type ProduceOffset struct {
 	Topic     string
 	Partition int32
@@ -42,6 +36,14 @@ type CommitOffset struct {
 	Offset        int64
 }
 
+// Backlog represents the size of a queue that hasn't been yet read by the consumer.
+type Backlog struct {
+	// Tags that identify the backlog
+	Tags []string
+	// Value of the backlog
+	Value int64
+}
+
 // StatsBucket specifies a set of stats computed over a duration.
 type StatsBucket struct {
 	// Start specifies the beginning of this bucket in unix nanoseconds.
@@ -50,8 +52,8 @@ type StatsBucket struct {
 	Duration uint64
 	// Stats contains a set of statistics computed for the duration of this bucket.
 	Stats []StatsPoint
-	// Kafka contains information specific to Kafka
-	Kafka Kafka
+	// Backlogs store information used to compute queue backlog
+	Backlogs []Backlog
 }
 
 // TimestampType can be either current or origin.

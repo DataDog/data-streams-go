@@ -6,6 +6,7 @@
 package datastreams
 
 import (
+	"fmt"
 	"log"
 	"math"
 	"net/http"
@@ -92,16 +93,13 @@ func (b bucket) export(timestampType TimestampType) StatsBucket {
 		Start:    b.start,
 		Duration: b.duration,
 		Stats:    stats,
-		Kafka: Kafka{
-			LatestProduceOffsets: make([]ProduceOffset, 0, len(b.latestProduceOffsets)),
-			LatestCommitOffsets:  make([]CommitOffset, 0, len(b.latestCommitOffsets)),
-		},
+		Backlogs: make([]Backlog, 0, len(b.latestCommitOffsets)+len(b.latestProduceOffsets)),
 	}
 	for key, offset := range b.latestProduceOffsets {
-		exported.Kafka.LatestProduceOffsets = append(exported.Kafka.LatestProduceOffsets, ProduceOffset{Topic: key.topic, Partition: key.partition, Offset: offset})
+		exported.Backlogs = append(exported.Backlogs, Backlog{Tags: []string{fmt.Sprintf("partition:%d", key.partition), fmt.Sprintf("topic:%s", key.topic), "type:kafka_produce"}, Value: offset})
 	}
 	for key, offset := range b.latestCommitOffsets {
-		exported.Kafka.LatestCommitOffsets = append(exported.Kafka.LatestCommitOffsets, CommitOffset{ConsumerGroup: key.group, Topic: key.topic, Partition: key.partition, Offset: offset})
+		exported.Backlogs = append(exported.Backlogs, Backlog{Tags: []string{fmt.Sprintf("consumer_group:%s", key.group), fmt.Sprintf("partition:%d", key.partition), fmt.Sprintf("topic:%s", key.topic), "type:kafka_commit"}, Value: offset})
 	}
 	return exported
 }

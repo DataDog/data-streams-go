@@ -6,7 +6,9 @@
 package datastreams
 
 import (
+	"github.com/DataDog/data-streams-go/datastreams/version"
 	"sort"
+	"strings"
 	"testing"
 	"time"
 
@@ -64,10 +66,6 @@ func TestAggregator(t *testing.T) {
 		pathwayLatency: (5 * time.Second).Nanoseconds(),
 		edgeLatency:    (2 * time.Second).Nanoseconds(),
 	})
-	emptyKafka := Kafka{
-		LatestProduceOffsets: []ProduceOffset{},
-		LatestCommitOffsets:  []CommitOffset{},
-	}
 	// flush at tp2 doesn't flush points at tp2 (current bucket)
 	assert.Equal(t, StatsPayload{
 		Env:        "env",
@@ -85,7 +83,7 @@ func TestAggregator(t *testing.T) {
 					EdgeLatency:    buildSketch(2),
 					TimestampType:  "current",
 				}},
-				Kafka: emptyKafka,
+				Backlogs: []Backlog{},
 			},
 			{
 				Start:    uint64(alignTs(tp1.UnixNano()-(5*time.Second).Nanoseconds(), bucketDuration.Nanoseconds())),
@@ -98,10 +96,10 @@ func TestAggregator(t *testing.T) {
 					EdgeLatency:    buildSketch(2),
 					TimestampType:  "origin",
 				}},
-				Kafka: emptyKafka,
+				Backlogs: []Backlog{},
 			},
 		},
-		TracerVersion: "v0.3",
+		TracerVersion: version.Tag,
 		Lang:          "go",
 	}, p.flush(tp2))
 
@@ -135,7 +133,7 @@ func TestAggregator(t *testing.T) {
 						TimestampType:  "current",
 					},
 				},
-				Kafka: emptyKafka,
+				Backlogs: []Backlog{},
 			},
 			{
 				Start:    uint64(alignTs(tp2.UnixNano()-(5*time.Second).Nanoseconds(), bucketDuration.Nanoseconds())),
@@ -158,10 +156,10 @@ func TestAggregator(t *testing.T) {
 						TimestampType:  "origin",
 					},
 				},
-				Kafka: emptyKafka,
+				Backlogs: []Backlog{},
 			},
 		},
-		TracerVersion: "v0.3",
+		TracerVersion: version.Tag,
 		Lang:          "go",
 	}, sp)
 }
@@ -174,31 +172,22 @@ func TestKafkaLag(t *testing.T) {
 	a.addKafkaOffset(kafkaOffset{offset: 5, topic: "topic1", partition: 1, offsetType: produceOffset})
 	a.addKafkaOffset(kafkaOffset{offset: 15, topic: "topic1", partition: 1, offsetType: produceOffset})
 	p := a.flush(tp1.Add(bucketDuration * 2))
-	sort.Slice(p.Stats[0].Kafka.LatestCommitOffsets, func(i, j int) bool {
-		return p.Stats[0].Kafka.LatestCommitOffsets[i].Topic < p.Stats[0].Kafka.LatestCommitOffsets[j].Topic
+	sort.Slice(p.Stats[0].Backlogs, func(i, j int) bool {
+		return strings.Join(p.Stats[0].Backlogs[i].Tags, "") < strings.Join(p.Stats[0].Backlogs[j].Tags, "")
 	})
-	expectedKafka := Kafka{
-		LatestProduceOffsets: []ProduceOffset{
-			{
-				Topic:     "topic1",
-				Partition: 1,
-				Offset:    15,
-			},
+	expectedBacklogs := []Backlog{
+		{
+			Tags:  []string{"consumer_group:group1", "partition:1", "topic:topic1", "type:kafka_commit"},
+			Value: 1,
 		},
-		LatestCommitOffsets: []CommitOffset{
-			{
-				ConsumerGroup: "group1",
-				Topic:         "topic1",
-				Partition:     1,
-				Offset:        1,
-			},
-			{
-				ConsumerGroup: "group1",
-				Topic:         "topic2",
-				Partition:     1,
-				Offset:        10,
-			},
+		{
+			Tags:  []string{"consumer_group:group1", "partition:1", "topic:topic2", "type:kafka_commit"},
+			Value: 10,
+		},
+		{
+			Tags:  []string{"partition:1", "topic:topic1", "type:kafka_produce"},
+			Value: 15,
 		},
 	}
-	assert.Equal(t, expectedKafka, p.Stats[0].Kafka)
+	assert.Equal(t, expectedBacklogs, p.Stats[0].Backlogs)
 }
