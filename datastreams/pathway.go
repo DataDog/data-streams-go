@@ -15,7 +15,16 @@ import (
 	"time"
 )
 
-var hashableEdgeTags = map[string]struct{}{"event_type": {}, "exchange": {}, "group": {}, "topic": {}, "type": {}}
+var hashableEdgeTags = map[string]struct{}{
+	"consumer_group": {},
+	"direction": {},
+	"event_type": {},
+	"exchange": {},
+	"group": {},
+	"partition": {},
+	"topic": {},
+	"type": {},
+}
 
 // Pathway is used to monitor how payloads are sent across different services.
 // An example Pathway would be:
