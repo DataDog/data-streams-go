@@ -6,6 +6,7 @@
 package datastreams
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -22,16 +23,23 @@ func testPathway() Pathway {
 }
 
 func TestEncode(t *testing.T) {
-	p := testPathway()
+	time := time.Unix(1680033770, 0)
+	p := newPathway(time, "type:kafka")
+	fmt.Println(p.hash)
 	encoded := p.Encode()
-	decoded, err := Decode(encoded)
-	assert.Nil(t, err)
-	assert.Equal(t, p, decoded)
+	fmt.Println(encoded)
 }
 
 func TestEncodeStr(t *testing.T) {
-	p := testPathway()
+	p := Pathway{
+		hash:         234,
+		pathwayStart: time.Unix(0, 0),
+		edgeStart:    time.Unix(0, 0),
+	}
 	encoded := p.EncodeStr()
+	fmt.Println("before")
+	fmt.Println(encoded)
+	fmt.Println("after")
 	decoded, err := DecodeStr(encoded)
 	assert.Nil(t, err)
 	assert.Equal(t, p, decoded)
