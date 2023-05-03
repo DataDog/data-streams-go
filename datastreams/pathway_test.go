@@ -6,6 +6,7 @@
 package datastreams
 
 import (
+	"hash/fnv"
 	"testing"
 	"time"
 
@@ -141,6 +142,24 @@ func TestPathway(t *testing.T) {
 		} {
 			assert.Equal(t, isWellFormedEdgeTag(tc.s), tc.b)
 		}
+	})
+
+	// nodeHash assumes that the go Hash interface produces the same result
+	// for a given series of Write calls as for a single Write of the same
+	// byte sequence. This unit test asserts that assumption.
+	t.Run("test hashWriterIsomorphism", func(t *testing.T) {
+		h := fnv.New64()
+		var b []byte
+		b = append(b, "dog"...)
+		b = append(b, "cat"...)
+		b = append(b, "pig"...)
+		h.Write(b)
+		s1 := h.Sum64()
+		h.Reset()
+		h.Write([]byte("dog"))
+		h.Write([]byte("cat"))
+		h.Write([]byte("pig"))
+		assert.Equal(t, s1, h.Sum64())
 	})
 }
 
