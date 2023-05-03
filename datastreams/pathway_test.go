@@ -149,7 +149,7 @@ func TestPathway(t *testing.T) {
 // goarch: amd64
 // pkg: github.com/DataDog/data-streams-go/datastreams
 // cpu: Intel(R) Core(TM) i7-1068NG7 CPU @ 2.30GHz
-// BenchmarkNodeHash-8   	 7118852	       180.2 ns/op	     120 B/op	       2 allocs/op
+// BenchmarkNodeHash-8   	 5167707	       232.5 ns/op	      24 B/op	       1 allocs/op
 func BenchmarkNodeHash(b *testing.B) {
 	service := "benchmark-runner"
 	env := "test"

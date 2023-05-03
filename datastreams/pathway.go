@@ -58,22 +58,16 @@ func isWellFormedEdgeTag(t string) bool {
 }
 
 func nodeHash(service, env, primaryTag string, edgeTags []string) uint64 {
-	n := len(service) + len(env) + len(primaryTag)
+	h := fnv.New64()
 	sort.Strings(edgeTags)
-	for _, t := range edgeTags {
-		n += len(t)
-	}
-	b := make([]byte, 0, n)
-	b = append(b, service...)
-	b = append(b, env...)
-	b = append(b, primaryTag...)
+	h.Write([]byte(service))
+	h.Write([]byte(env))
+	h.Write([]byte(primaryTag))
 	for _, t := range edgeTags {
 		if isWellFormedEdgeTag(t) {
-			b = append(b, t...)
+			h.Write([]byte(t))
 		}
 	}
-	h := fnv.New64()
-	h.Write(b)
 	return h.Sum64()
 }
 
