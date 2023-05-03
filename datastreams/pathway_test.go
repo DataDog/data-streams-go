@@ -6,6 +6,7 @@
 package datastreams
 
 import (
+	"hash/fnv"
 	"testing"
 	"time"
 
@@ -122,4 +123,58 @@ func TestPathway(t *testing.T) {
 			nodeHash("service-1", "env", "d:1", []string{"partition:1"}),
 		)
 	})
+
+	t.Run("test isWellFormedEdgeTag", func(t *testing.T) {
+		for _, tc := range []struct {
+			s string
+			b bool
+		}{
+			{"", false},
+			{"dog", false},
+			{"dog:", false},
+			{"dog:bark", false},
+			{"type:", true},
+			{"type:dog", true},
+			{"type::dog", false},
+			{"type:d:o:g", false},
+			{"type::", false},
+			{":", false},
+		} {
+			assert.Equal(t, isWellFormedEdgeTag(tc.s), tc.b)
+		}
+	})
+
+	// nodeHash assumes that the go Hash interface produces the same result
+	// for a given series of Write calls as for a single Write of the same
+	// byte sequence. This unit test asserts that assumption.
+	t.Run("test hashWriterIsomorphism", func(t *testing.T) {
+		h := fnv.New64()
+		var b []byte
+		b = append(b, "dog"...)
+		b = append(b, "cat"...)
+		b = append(b, "pig"...)
+		h.Write(b)
+		s1 := h.Sum64()
+		h.Reset()
+		h.Write([]byte("dog"))
+		h.Write([]byte("cat"))
+		h.Write([]byte("pig"))
+		assert.Equal(t, s1, h.Sum64())
+	})
+}
+
+// Sample results at time of writing this benchmark:
+// goos: darwin
+// goarch: amd64
+// pkg: github.com/DataDog/data-streams-go/datastreams
+// cpu: Intel(R) Core(TM) i7-1068NG7 CPU @ 2.30GHz
+// BenchmarkNodeHash-8   	 5167707	       232.5 ns/op	      24 B/op	       1 allocs/op
+func BenchmarkNodeHash(b *testing.B) {
+	service := "benchmark-runner"
+	env := "test"
+	primaryTag := "foo:bar"
+	edgeTags := []string{"event_type:dog", "exchange:local", "group:all", "topic:off", "type:writer"}
+	for i := 0; i < b.N; i++ {
+		nodeHash(service, env, primaryTag, edgeTags)
+	}
 }
