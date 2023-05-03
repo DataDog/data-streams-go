@@ -46,6 +46,17 @@ func Merge(pathways []Pathway) Pathway {
 	return pathways[n]
 }
 
+func isWellFormedEdgeTag(t string) bool {
+	if i := strings.IndexByte(t, ':'); i != -1 {
+		if j := strings.LastIndexByte(t, ':'); j == i {
+			if _, exists := hashableEdgeTags[t[:i]]; exists {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func nodeHash(service, env, primaryTag string, edgeTags []string) uint64 {
 	n := len(service) + len(env) + len(primaryTag)
 	sort.Strings(edgeTags)
@@ -57,11 +68,7 @@ func nodeHash(service, env, primaryTag string, edgeTags []string) uint64 {
 	b = append(b, env...)
 	b = append(b, primaryTag...)
 	for _, t := range edgeTags {
-		s := strings.Split(t, ":")
-		if len(s) == 2 {
-			if _, ok := hashableEdgeTags[s[0]]; !ok {
-				continue
-			}
+		if isWellFormedEdgeTag(t) {
 			b = append(b, t...)
 		}
 	}

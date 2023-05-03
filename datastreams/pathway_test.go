@@ -122,4 +122,40 @@ func TestPathway(t *testing.T) {
 			nodeHash("service-1", "env", "d:1", []string{"partition:1"}),
 		)
 	})
+
+	t.Run("test isWellFormedEdgeTag", func(t *testing.T) {
+		for _, tc := range []struct {
+			s string
+			b bool
+		}{
+			{"", false},
+			{"dog", false},
+			{"dog:", false},
+			{"dog:bark", false},
+			{"type:", true},
+			{"type:dog", true},
+			{"type::dog", false},
+			{"type:d:o:g", false},
+			{"type::", false},
+			{":", false},
+		} {
+			assert.Equal(t, isWellFormedEdgeTag(tc.s), tc.b)
+		}
+	})
+}
+
+// Sample results at time of writing this benchmark:
+// goos: darwin
+// goarch: amd64
+// pkg: github.com/DataDog/data-streams-go/datastreams
+// cpu: Intel(R) Core(TM) i7-1068NG7 CPU @ 2.30GHz
+// BenchmarkNodeHash-8   	 7118852	       180.2 ns/op	     120 B/op	       2 allocs/op
+func BenchmarkNodeHash(b *testing.B) {
+	service := "benchmark-runner"
+	env := "test"
+	primaryTag := "foo:bar"
+	edgeTags := []string{"event_type:dog", "exchange:local", "group:all", "topic:off", "type:writer"}
+	for i := 0; i < b.N; i++ {
+		nodeHash(service, env, primaryTag, edgeTags)
+	}
 }
