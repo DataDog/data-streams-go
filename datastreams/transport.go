@@ -61,6 +61,9 @@ func newHTTPTransport(addr string, site string, apiKey string, client *http.Clie
 		"Content-Type":                  "application/msgpack",
 		"Content-Encoding":              "gzip",
 	}
+	if cid := ContainerID(); cid != "" {
+		defaultHeaders["Datadog-Container-ID"] = cid
+	}
 	var url string
 	if agentLess {
 		defaultHeaders["DD-API-KEY"] = apiKey
