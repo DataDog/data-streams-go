@@ -24,8 +24,9 @@ import (
 )
 
 const (
-	bucketDuration     = time.Second * 10
-	defaultServiceName = "unnamed-go-service"
+	bucketDuration      = time.Second * 10
+	statsReportInterval = time.Second * 10
+	defaultServiceName  = "unnamed-go-service"
 )
 
 var sketchMapping, _ = mapping.NewLogarithmicMapping(0.01)
@@ -253,8 +254,14 @@ func (a *aggregator) Start() {
 		return
 	}
 	a.stop = make(chan struct{})
-	a.wg.Add(1)
-	go a.reportStats()
+	a.wg.Add(2)
+	go func() {
+		defer a.wg.Done()
+		tick := time.NewTicker(statsReportInterval)
+		defer tick.Stop()
+		a.runStatsReporter(tick.C)
+
+	}()
 	go func() {
 		defer a.wg.Done()
 		tick := time.NewTicker(bucketDuration)
@@ -271,14 +278,24 @@ func (a *aggregator) Stop() {
 	a.wg.Wait()
 }
 
-func (a *aggregator) reportStats() {
-	for range time.NewTicker(time.Second * 10).C {
-		a.statsd.Count("datadog.datastreams.aggregator.payloads_in", atomic.SwapInt64(&a.stats.payloadsIn, 0), nil, 1)
-		a.statsd.Count("datadog.datastreams.aggregator.flushed_payloads", atomic.SwapInt64(&a.stats.flushedPayloads, 0), nil, 1)
-		a.statsd.Count("datadog.datastreams.aggregator.flushed_buckets", atomic.SwapInt64(&a.stats.flushedBuckets, 0), nil, 1)
-		a.statsd.Count("datadog.datastreams.aggregator.flush_errors", atomic.SwapInt64(&a.stats.flushErrors, 0), nil, 1)
-		a.statsd.Count("datadog.datastreams.dropped_payloads", atomic.SwapInt64(&a.stats.dropped, 0), nil, 1)
+func (a *aggregator) runStatsReporter(tick <-chan time.Time) {
+	for {
+		select {
+		case <-tick:
+			a.reportStats()
+		case <-a.stop:
+			a.reportStats()
+			return
+		}
 	}
+}
+
+func (a *aggregator) reportStats() {
+	a.statsd.Count("datadog.datastreams.aggregator.payloads_in", atomic.SwapInt64(&a.stats.payloadsIn, 0), nil, 1)
+	a.statsd.Count("datadog.datastreams.aggregator.flushed_payloads", atomic.SwapInt64(&a.stats.flushedPayloads, 0), nil, 1)
+	a.statsd.Count("datadog.datastreams.aggregator.flushed_buckets", atomic.SwapInt64(&a.stats.flushedBuckets, 0), nil, 1)
+	a.statsd.Count("datadog.datastreams.aggregator.flush_errors", atomic.SwapInt64(&a.stats.flushErrors, 0), nil, 1)
+	a.statsd.Count("datadog.datastreams.dropped_payloads", atomic.SwapInt64(&a.stats.dropped, 0), nil, 1)
 }
 
 func (a *aggregator) runFlusher() {
