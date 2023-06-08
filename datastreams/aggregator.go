@@ -14,7 +14,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/DataDog/datadog-go/statsd"
+	"github.com/DataDog/datadog-go/v5/statsd"
 	"github.com/DataDog/sketches-go/ddsketch"
 	"github.com/DataDog/sketches-go/ddsketch/mapping"
 	"github.com/DataDog/sketches-go/ddsketch/store"

@@ -10,7 +10,7 @@ require (
 )
 
 require (
-	github.com/DataDog/datadog-go v4.8.3+incompatible // indirect
+	github.com/DataDog/datadog-go/v5 v5.3.0 // indirect
 	github.com/DataDog/sketches-go v1.3.0 // indirect
 	github.com/Microsoft/go-winio v0.5.2 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
