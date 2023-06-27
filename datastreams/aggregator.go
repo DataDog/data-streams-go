@@ -242,7 +242,7 @@ func (a *aggregator) run(tick <-chan time.Time) {
 			a.sendToAgent(a.flush(now))
 		case done := <-a.flushRequest:
 			a.sendToAgent(a.flush(time.Now().Add(bucketDuration * 10)))
-			done <- struct{}{}
+			close(done)
 		case <-a.stop:
 			// drop in flight payloads on the input channel
 			a.sendToAgent(a.flush(time.Now().Add(bucketDuration * 10)))
