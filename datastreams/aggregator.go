@@ -148,6 +148,7 @@ type aggregator struct {
 	wg                   sync.WaitGroup
 	stopped              uint64
 	stop                 chan struct{} // closing this channel triggers shutdown
+	flushRequest         chan chan<- struct{}
 	stats                aggregatorStats
 	transport            *httpTransport
 	statsd               statsd.ClientInterface
@@ -239,6 +240,9 @@ func (a *aggregator) run(tick <-chan time.Time) {
 			a.addKafkaOffset(o)
 		case now := <-tick:
 			a.sendToAgent(a.flush(now))
+		case done := <-a.flushRequest:
+			a.sendToAgent(a.flush(time.Now().Add(bucketDuration * 10)))
+			close(done)
 		case <-a.stop:
 			// drop in flight payloads on the input channel
 			a.sendToAgent(a.flush(time.Now().Add(bucketDuration * 10)))
@@ -254,6 +258,7 @@ func (a *aggregator) Start() {
 		return
 	}
 	a.stop = make(chan struct{})
+	a.flushRequest = make(chan chan<- struct{})
 	a.wg.Add(2)
 	go func() {
 		defer a.wg.Done()
@@ -278,6 +283,19 @@ func (a *aggregator) Stop() {
 	a.wg.Wait()
 }
 
+// Flush triggers a flush and waits for it to complete.
+func (a *aggregator) Flush() {
+	if atomic.LoadUint64(&a.stopped) > 0 {
+		return
+	}
+	done := make(chan struct{})
+	select {
+	case a.flushRequest <- done:
+		<-done
+	case <-a.stop:
+	}
+}
+
 func (a *aggregator) runStatsReporter(tick <-chan time.Time) {
 	for {
 		select {
@@ -296,16 +314,6 @@ func (a *aggregator) reportStats() {
 	a.statsd.Count("datadog.datastreams.aggregator.flushed_buckets", atomic.SwapInt64(&a.stats.flushedBuckets, 0), nil, 1)
 	a.statsd.Count("datadog.datastreams.aggregator.flush_errors", atomic.SwapInt64(&a.stats.flushErrors, 0), nil, 1)
 	a.statsd.Count("datadog.datastreams.dropped_payloads", atomic.SwapInt64(&a.stats.dropped, 0), nil, 1)
-}
-
-func (a *aggregator) runFlusher() {
-	for {
-		select {
-		case <-a.stop:
-			// flush everything, so add a few bucketDurations to the current time in order to get a good margin.
-			return
-		}
-	}
 }
 
 func (a *aggregator) flushBucket(buckets map[int64]bucket, bucketStart int64, timestampType TimestampType) StatsBucket {
