@@ -11,6 +11,10 @@ type kafkaWrapper struct {
 	*kafka.Message
 }
 
+func (m *kafkaWrapper) GetSize() int64 {
+	return int64(len(m.Key) + len(m.Value))
+}
+
 var (
 	_ messaging.ProducerMessage = (*kafkaWrapper)(nil)
 	_ messaging.ConsumerMessage = (*kafkaWrapper)(nil)

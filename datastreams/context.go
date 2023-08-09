@@ -34,35 +34,19 @@ func PathwayFromContext(ctx context.Context) (p Pathway, ok bool) {
 // SetCheckpoint sets a checkpoint on the pathway found in ctx.
 // If there is no pathway in ctx, a new Pathway is returned.
 func SetCheckpoint(ctx context.Context, edgeTags ...string) (Pathway, context.Context) {
+	return SetCheckpointWithPayloadSize(ctx, 0, edgeTags...)
+}
+
+func SetCheckpointWithPayloadSize(ctx context.Context, payloadSize int64, edgeTags ...string) (Pathway, context.Context) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
 	p, ok := PathwayFromContext(ctx)
 	if ok {
-		p = p.SetCheckpoint(edgeTags...)
+		p = p.SetCheckpointWithPayloadSize(payloadSize, edgeTags...)
 	} else {
-		p = NewPathway(edgeTags...)
+		p = NewPathwayWithPayloadSize(payloadSize, edgeTags...)
 	}
 	ctx = ContextWithPathway(ctx, p)
 	return p, ctx
-}
-
-// MergeContexts returns the first context which includes the pathway resulting from merging the pathways
-// contained in all contexts.
-// This function should be used in fan-in situations. The current implementation keeps only 1 Pathway.
-// A future implementation could merge multiple Pathways together and put the resulting Pathway in the context.
-func MergeContexts(ctxs ...context.Context) context.Context {
-	if len(ctxs) == 0 {
-		return context.Background()
-	}
-	pathways := make([]Pathway, 0, len(ctxs))
-	for _, ctx := range ctxs {
-		if p, ok := PathwayFromContext(ctx); ok {
-			pathways = append(pathways, p)
-		}
-	}
-	if len(pathways) == 0 {
-		return ctxs[0]
-	}
-	return ContextWithPathway(ctxs[0], Merge(pathways))
 }

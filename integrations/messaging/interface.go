@@ -25,6 +25,7 @@ type ProducerMessage interface {
 	GetTopic() *string
 	GetPartition() int32
 	AppendToHeaders(...Header)
+	GetSize() int64
 }
 
 // ConsumerMessage inteface serves as the point of entry where messages
@@ -34,4 +35,5 @@ type ConsumerMessage interface {
 	GetTopic() *string
 	GetPartition() int32
 	GetHeaders() []Header
+	GetSize() int64
 }
