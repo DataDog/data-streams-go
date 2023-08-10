@@ -57,7 +57,7 @@ func (m *saramaConsumerWrapper) GetSize() int64 {
 	for _, header := range m.Headers {
 		headersSize += len(header.Key) + len(header.Value)
 	}
-	// ignoring header sizes for now
+
 	return int64(len(m.Key) + len(m.Value) + headersSize)
 }
 

@@ -22,7 +22,7 @@ func TraceKafkaConsume(ctx context.Context, msg ConsumerMessage, group string) c
 		edges = append(edges, "topic:"+*msg.GetTopic())
 	}
 	edges = append(edges, "partition:"+strconv.Itoa(int(msg.GetPartition())))
-	_, ctx = datastreams.SetCheckpointWithParams(ctx, datastreams.NewCheckpointParams(msg.GetSize()), edges...)
+	_, ctx = datastreams.SetCheckpointWithParams(ctx, datastreams.NewCheckpointParams().WithPayloadSize(msg.GetSize()), edges...)
 	return ctx
 }
 

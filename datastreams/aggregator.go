@@ -84,7 +84,7 @@ func (b bucket) export(timestampType TimestampType) StatsBucket {
 		}
 		payloadSize, err := proto.Marshal(s.payloadSize.ToProto())
 		if err != nil {
-			log.Printf("ERROR: can't serialize paylaod size. Ignoring: %v", err)
+			log.Printf("ERROR: can't serialize payload size. Ignoring: %v", err)
 			continue
 		}
 		stats = append(stats, StatsPoint{

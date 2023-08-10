@@ -15,8 +15,13 @@ type CheckpointParams struct {
 	PayloadSize int64
 }
 
-func NewCheckpointParams(payloadSize int64) CheckpointParams {
-	return CheckpointParams{PayloadSize: payloadSize}
+func NewCheckpointParams() CheckpointParams {
+	return CheckpointParams{}
+}
+
+func (p CheckpointParams) WithPayloadSize(size int64) CheckpointParams {
+	p.PayloadSize = size
+	return p
 }
 
 var activePathwayKey = contextKey{}
