@@ -12,7 +12,12 @@ type kafkaWrapper struct {
 }
 
 func (m *kafkaWrapper) GetSize() int64 {
-	return int64(len(m.Key) + len(m.Value))
+	var headersSize = 0
+	for _, header := range m.Headers {
+		headersSize += len(header.Key) + len(header.Value)
+	}
+
+	return int64(len(m.Key) + len(m.Value) + headersSize)
 }
 
 var (

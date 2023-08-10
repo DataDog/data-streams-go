@@ -49,8 +49,12 @@ func (m *saramaProducerWrapper) GetSize() int64 {
 }
 
 func (m *saramaConsumerWrapper) GetSize() int64 {
+	var headersSize = 0
+	for _, header := range m.Headers {
+		headersSize += len(header.Key) + len(header.Value)
+	}
 	// ignoring header sizes for now
-	return int64(len(m.Key)) + int64(len(m.Value))
+	return int64(len(m.Key) + len(m.Value) + headersSize)
 }
 
 func (m *saramaConsumerWrapper) GetHeaders() []messaging.Header {
