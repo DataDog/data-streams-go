@@ -328,3 +328,10 @@ func WithAgentless(apiKey string) StartOption {
 		c.agentLess = true
 	}
 }
+
+// WithHTTPClient specifies the HTTP client to use when communicating with the agent.
+func WithHTTPClient(client *http.Client) StartOption {
+	return func(c *config) {
+		c.httpClient = client
+	}
+}
