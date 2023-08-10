@@ -38,6 +38,7 @@ type statsPoint struct {
 	timestamp      int64
 	pathwayLatency int64
 	edgeLatency    int64
+	payloadSize    int64
 }
 
 type statsGroup struct {
@@ -47,6 +48,7 @@ type statsGroup struct {
 	parentHash     uint64
 	pathwayLatency *ddsketch.DDSketch
 	edgeLatency    *ddsketch.DDSketch
+	payloadSize    *ddsketch.DDSketch
 }
 
 type bucket struct {
@@ -80,6 +82,11 @@ func (b bucket) export(timestampType TimestampType) StatsBucket {
 			log.Printf("ERROR: can't serialize edge latency. Ignoring: %v", err)
 			continue
 		}
+		payloadSize, err := proto.Marshal(s.payloadSize.ToProto())
+		if err != nil {
+			log.Printf("ERROR: can't serialize payload size. Ignoring: %v", err)
+			continue
+		}
 		stats = append(stats, StatsPoint{
 			PathwayLatency: pathwayLatency,
 			EdgeLatency:    edgeLatency,
@@ -88,6 +95,7 @@ func (b bucket) export(timestampType TimestampType) StatsBucket {
 			Hash:           s.hash,
 			ParentHash:     s.parentHash,
 			TimestampType:  timestampType,
+			PayloadSize:    payloadSize,
 		})
 	}
 	exported := StatsBucket{
@@ -194,6 +202,7 @@ func (a *aggregator) addToBuckets(point statsPoint, btime int64, buckets map[int
 			hash:           point.hash,
 			pathwayLatency: ddsketch.NewDDSketch(sketchMapping, store.DenseStoreConstructor(), store.DenseStoreConstructor()),
 			edgeLatency:    ddsketch.NewDDSketch(sketchMapping, store.DenseStoreConstructor(), store.DenseStoreConstructor()),
+			payloadSize:    ddsketch.NewDDSketch(sketchMapping, store.DenseStoreConstructor(), store.DenseStoreConstructor()),
 		}
 		b.points[point.hash] = group
 	}
@@ -202,6 +211,9 @@ func (a *aggregator) addToBuckets(point statsPoint, btime int64, buckets map[int
 	}
 	if err := group.edgeLatency.Add(math.Max(float64(point.edgeLatency)/float64(time.Second), 0)); err != nil {
 		log.Printf("ERROR: failed to add edge latency. Ignoring %v.", err)
+	}
+	if err := group.payloadSize.Add(float64(point.payloadSize)); err != nil {
+		log.Printf("ERROR: failed to add payload size. Ignoring %v.", err)
 	}
 }
 

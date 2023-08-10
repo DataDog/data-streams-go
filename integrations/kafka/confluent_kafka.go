@@ -11,6 +11,15 @@ type kafkaWrapper struct {
 	*kafka.Message
 }
 
+func (m *kafkaWrapper) GetSize() int64 {
+	var headersSize = 0
+	for _, header := range m.Headers {
+		headersSize += len(header.Key) + len(header.Value)
+	}
+
+	return int64(len(m.Key) + len(m.Value) + headersSize)
+}
+
 var (
 	_ messaging.ProducerMessage = (*kafkaWrapper)(nil)
 	_ messaging.ConsumerMessage = (*kafkaWrapper)(nil)

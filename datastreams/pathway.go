@@ -82,16 +82,20 @@ func pathwayHash(nodeHash, parentHash uint64) uint64 {
 
 // NewPathway creates a new pathway.
 func NewPathway(edgeTags ...string) Pathway {
-	return newPathway(time.Now(), edgeTags...)
+	return NewPathwayWithParams(CheckpointParams{}, edgeTags...)
 }
 
-func newPathway(now time.Time, edgeTags ...string) Pathway {
+func NewPathwayWithParams(params CheckpointParams, edgeTags ...string) Pathway {
+	return newPathway(time.Now(), params, edgeTags...)
+}
+
+func newPathway(now time.Time, params CheckpointParams, edgeTags ...string) Pathway {
 	p := Pathway{
 		hash:         0,
 		pathwayStart: now,
 		edgeStart:    now,
 	}
-	return p.setCheckpoint(now, edgeTags)
+	return p.setCheckpoint(now, params, edgeTags)
 }
 
 // GetHash gets the hash of a pathway.
@@ -101,10 +105,14 @@ func (p Pathway) GetHash() uint64 {
 
 // SetCheckpoint sets a checkpoint on a pathway.
 func (p Pathway) SetCheckpoint(edgeTags ...string) Pathway {
-	return p.setCheckpoint(time.Now(), edgeTags)
+	return p.setCheckpoint(time.Now(), CheckpointParams{}, edgeTags)
 }
 
-func (p Pathway) setCheckpoint(now time.Time, edgeTags []string) Pathway {
+func (p Pathway) SetCheckpointWithParams(params CheckpointParams, edgeTags ...string) Pathway {
+	return p.setCheckpoint(time.Now(), params, edgeTags)
+}
+
+func (p Pathway) setCheckpoint(now time.Time, params CheckpointParams, edgeTags []string) Pathway {
 	aggr := getGlobalAggregator()
 	service := defaultServiceName
 	primaryTag := ""
@@ -128,6 +136,7 @@ func (p Pathway) setCheckpoint(now time.Time, edgeTags []string) Pathway {
 			timestamp:      now.UnixNano(),
 			pathwayLatency: now.Sub(p.pathwayStart).Nanoseconds(),
 			edgeLatency:    now.Sub(p.edgeStart).Nanoseconds(),
+			payloadSize:    params.PayloadSize,
 		}:
 		default:
 			atomic.AddInt64(&aggregator.stats.dropped, 1)

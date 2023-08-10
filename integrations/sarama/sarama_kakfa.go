@@ -44,6 +44,23 @@ func (m *saramaConsumerWrapper) GetTopic() *string { return &m.ConsumerMessage.T
 
 func (m *saramaConsumerWrapper) GetPartition() int32 { return m.ConsumerMessage.Partition }
 
+func (m *saramaProducerWrapper) GetSize() int64 {
+	var headersSize = 0
+	for _, header := range m.Headers {
+		headersSize += len(header.Key) + len(header.Value)
+	}
+	return int64(m.Key.Length()) + int64(m.Value.Length()+headersSize)
+}
+
+func (m *saramaConsumerWrapper) GetSize() int64 {
+	var headersSize = 0
+	for _, header := range m.Headers {
+		headersSize += len(header.Key) + len(header.Value)
+	}
+
+	return int64(len(m.Key) + len(m.Value) + headersSize)
+}
+
 func (m *saramaConsumerWrapper) GetHeaders() []messaging.Header {
 	hs := make([]messaging.Header, len(m.Headers))
 	for i, h := range m.Headers {

@@ -11,6 +11,19 @@ import (
 
 type contextKey struct{}
 
+type CheckpointParams struct {
+	PayloadSize int64
+}
+
+func NewCheckpointParams() CheckpointParams {
+	return CheckpointParams{}
+}
+
+func (p CheckpointParams) WithPayloadSize(size int64) CheckpointParams {
+	p.PayloadSize = size
+	return p
+}
+
 var activePathwayKey = contextKey{}
 
 // ContextWithPathway returns a copy of the given context which includes the pathway p.
@@ -34,20 +47,23 @@ func PathwayFromContext(ctx context.Context) (p Pathway, ok bool) {
 // SetCheckpoint sets a checkpoint on the pathway found in ctx.
 // If there is no pathway in ctx, a new Pathway is returned.
 func SetCheckpoint(ctx context.Context, edgeTags ...string) (Pathway, context.Context) {
+	return SetCheckpointWithParams(ctx, CheckpointParams{}, edgeTags...)
+}
+
+func SetCheckpointWithParams(ctx context.Context, params CheckpointParams, edgeTags ...string) (Pathway, context.Context) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
 	p, ok := PathwayFromContext(ctx)
 	if ok {
-		p = p.SetCheckpoint(edgeTags...)
+		p = p.SetCheckpointWithParams(params, edgeTags...)
 	} else {
-		p = NewPathway(edgeTags...)
+		p = NewPathwayWithParams(params, edgeTags...)
 	}
 	ctx = ContextWithPathway(ctx, p)
 	return p, ctx
 }
 
-// MergeContexts returns the first context which includes the pathway resulting from merging the pathways
 // contained in all contexts.
 // This function should be used in fan-in situations. The current implementation keeps only 1 Pathway.
 // A future implementation could merge multiple Pathways together and put the resulting Pathway in the context.

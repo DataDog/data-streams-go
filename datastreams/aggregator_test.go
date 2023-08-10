@@ -23,6 +23,7 @@ func buildSketch(values ...float64) []byte {
 	for _, v := range values {
 		sketch.Add(v)
 	}
+
 	bytes, _ := proto.Marshal(sketch.ToProto())
 	return bytes
 }
@@ -41,6 +42,7 @@ func TestAggregator(t *testing.T) {
 		timestamp:      tp2.UnixNano(),
 		pathwayLatency: time.Second.Nanoseconds(),
 		edgeLatency:    time.Second.Nanoseconds(),
+		payloadSize:    1,
 	})
 	p.add(statsPoint{
 		edgeTags:       []string{"type:edge-1"},
@@ -49,6 +51,7 @@ func TestAggregator(t *testing.T) {
 		timestamp:      tp2.UnixNano(),
 		pathwayLatency: (5 * time.Second).Nanoseconds(),
 		edgeLatency:    (2 * time.Second).Nanoseconds(),
+		payloadSize:    2,
 	})
 	p.add(statsPoint{
 		edgeTags:       []string{"type:edge-1"},
@@ -57,6 +60,7 @@ func TestAggregator(t *testing.T) {
 		timestamp:      tp2.UnixNano(),
 		pathwayLatency: (5 * time.Second).Nanoseconds(),
 		edgeLatency:    (2 * time.Second).Nanoseconds(),
+		payloadSize:    2,
 	})
 	p.add(statsPoint{
 		edgeTags:       []string{"type:edge-1"},
@@ -65,6 +69,7 @@ func TestAggregator(t *testing.T) {
 		timestamp:      tp1.UnixNano(),
 		pathwayLatency: (5 * time.Second).Nanoseconds(),
 		edgeLatency:    (2 * time.Second).Nanoseconds(),
+		payloadSize:    2,
 	})
 	// flush at tp2 doesn't flush points at tp2 (current bucket)
 	assert.Equal(t, StatsPayload{
@@ -81,6 +86,7 @@ func TestAggregator(t *testing.T) {
 					ParentHash:     1,
 					PathwayLatency: buildSketch(5),
 					EdgeLatency:    buildSketch(2),
+					PayloadSize:    buildSketch(2),
 					TimestampType:  "current",
 				}},
 				Backlogs: []Backlog{},
@@ -94,6 +100,7 @@ func TestAggregator(t *testing.T) {
 					ParentHash:     1,
 					PathwayLatency: buildSketch(5),
 					EdgeLatency:    buildSketch(2),
+					PayloadSize:    buildSketch(2),
 					TimestampType:  "origin",
 				}},
 				Backlogs: []Backlog{},
@@ -107,6 +114,7 @@ func TestAggregator(t *testing.T) {
 	sort.Slice(sp.Stats[0].Stats, func(i, j int) bool {
 		return sp.Stats[0].Stats[i].Hash < sp.Stats[0].Stats[j].Hash
 	})
+
 	assert.Equal(t, StatsPayload{
 		Env:        "env",
 		Service:    "service",
@@ -122,6 +130,7 @@ func TestAggregator(t *testing.T) {
 						ParentHash:     1,
 						PathwayLatency: buildSketch(1, 5),
 						EdgeLatency:    buildSketch(1, 2),
+						PayloadSize:    buildSketch(1, 2),
 						TimestampType:  "current",
 					},
 					{
@@ -130,6 +139,7 @@ func TestAggregator(t *testing.T) {
 						ParentHash:     1,
 						PathwayLatency: buildSketch(5),
 						EdgeLatency:    buildSketch(2),
+						PayloadSize:    buildSketch(2),
 						TimestampType:  "current",
 					},
 				},
@@ -145,6 +155,7 @@ func TestAggregator(t *testing.T) {
 						ParentHash:     1,
 						PathwayLatency: buildSketch(1, 5),
 						EdgeLatency:    buildSketch(1, 2),
+						PayloadSize:    buildSketch(1, 2),
 						TimestampType:  "origin",
 					},
 					{
@@ -153,6 +164,7 @@ func TestAggregator(t *testing.T) {
 						ParentHash:     1,
 						PathwayLatency: buildSketch(5),
 						EdgeLatency:    buildSketch(2),
+						PayloadSize:    buildSketch(2),
 						TimestampType:  "origin",
 					},
 				},
