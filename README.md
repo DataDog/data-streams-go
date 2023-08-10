@@ -66,7 +66,7 @@ import (
 
 contexts := []Context{}
 for (...) {
-    contexts.append(contexts, ddkafka.TraceKafkaConsume(ctx, &consumedMsg, consumer_group))
+    contexts = append(contexts, ddkafka.TraceKafkaConsume(ctx, &consumedMsg, consumer_group))
 }
 mergedContext = datastreams.MergeContexts(contexts...)
 
