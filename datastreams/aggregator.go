@@ -10,6 +10,7 @@ import (
 	"log"
 	"math"
 	"net/http"
+	"runtime/debug"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -214,6 +215,13 @@ func (a *aggregator) addToBuckets(point statsPoint, btime int64, buckets map[int
 	}
 	if err := group.payloadSize.Add(float64(point.payloadSize)); err != nil {
 		log.Printf("ERROR: failed to add payload size. Ignoring %v.", err)
+	} else {
+		trace := ""
+		if point.payloadSize == 0 {
+			trace = string(debug.Stack())
+		}
+
+		log.Printf("Added payload with size %v\n%v", point.payloadSize, trace)
 	}
 }
 
