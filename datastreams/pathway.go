@@ -82,20 +82,20 @@ func pathwayHash(nodeHash, parentHash uint64) uint64 {
 
 // NewPathway creates a new pathway.
 func NewPathway(edgeTags ...string) Pathway {
-	return NewPathwayWithPayloadSize(0, edgeTags...)
+	return NewPathwayWithParams(CheckpointParams{}, edgeTags...)
 }
 
-func NewPathwayWithPayloadSize(payloadSize int64, edgeTags ...string) Pathway {
-	return newPathway(time.Now(), payloadSize, edgeTags...)
+func NewPathwayWithParams(params CheckpointParams, edgeTags ...string) Pathway {
+	return newPathway(time.Now(), params, edgeTags...)
 }
 
-func newPathway(now time.Time, payloadSize int64, edgeTags ...string) Pathway {
+func newPathway(now time.Time, params CheckpointParams, edgeTags ...string) Pathway {
 	p := Pathway{
 		hash:         0,
 		pathwayStart: now,
 		edgeStart:    now,
 	}
-	return p.setCheckpoint(now, payloadSize, edgeTags)
+	return p.setCheckpoint(now, params, edgeTags)
 }
 
 // GetHash gets the hash of a pathway.
@@ -105,14 +105,14 @@ func (p Pathway) GetHash() uint64 {
 
 // SetCheckpoint sets a checkpoint on a pathway.
 func (p Pathway) SetCheckpoint(edgeTags ...string) Pathway {
-	return p.setCheckpoint(time.Now(), 0, edgeTags)
+	return p.setCheckpoint(time.Now(), CheckpointParams{}, edgeTags)
 }
 
-func (p Pathway) SetCheckpointWithPayloadSize(payloadSize int64, edgeTags ...string) Pathway {
-	return p.setCheckpoint(time.Now(), payloadSize, edgeTags)
+func (p Pathway) SetCheckpointWithParams(params CheckpointParams, edgeTags ...string) Pathway {
+	return p.setCheckpoint(time.Now(), params, edgeTags)
 }
 
-func (p Pathway) setCheckpoint(now time.Time, payloadSize int64, edgeTags []string) Pathway {
+func (p Pathway) setCheckpoint(now time.Time, params CheckpointParams, edgeTags []string) Pathway {
 	aggr := getGlobalAggregator()
 	service := defaultServiceName
 	primaryTag := ""
@@ -136,7 +136,7 @@ func (p Pathway) setCheckpoint(now time.Time, payloadSize int64, edgeTags []stri
 			timestamp:      now.UnixNano(),
 			pathwayLatency: now.Sub(p.pathwayStart).Nanoseconds(),
 			edgeLatency:    now.Sub(p.edgeStart).Nanoseconds(),
-			payloadSize:    payloadSize,
+			payloadSize:    params.PayloadSize,
 		}:
 		default:
 			atomic.AddInt64(&aggregator.stats.dropped, 1)

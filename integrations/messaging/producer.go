@@ -23,7 +23,7 @@ func TraceKafkaProduce(ctx context.Context, msg ProducerMessage) context.Context
 	if msg.GetPartition() != PartitionAny {
 		edges = append(edges, "partition:"+strconv.Itoa(int(msg.GetPartition())))
 	}
-	p, ctx := datastreams.SetCheckpointWithPayloadSize(ctx, msg.GetSize(), edges...)
+	p, ctx := datastreams.SetCheckpointWithParams(ctx, datastreams.NewCheckpointParams(msg.GetSize()), edges...)
 	msg.AppendToHeaders(Header{Key: datastreams.PropagationKey, Value: p.Encode()})
 	return ctx
 }

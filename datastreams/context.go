@@ -11,6 +11,14 @@ import (
 
 type contextKey struct{}
 
+type CheckpointParams struct {
+	PayloadSize int64
+}
+
+func NewCheckpointParams(payloadSize int64) CheckpointParams {
+	return CheckpointParams{PayloadSize: payloadSize}
+}
+
 var activePathwayKey = contextKey{}
 
 // ContextWithPathway returns a copy of the given context which includes the pathway p.
@@ -34,19 +42,38 @@ func PathwayFromContext(ctx context.Context) (p Pathway, ok bool) {
 // SetCheckpoint sets a checkpoint on the pathway found in ctx.
 // If there is no pathway in ctx, a new Pathway is returned.
 func SetCheckpoint(ctx context.Context, edgeTags ...string) (Pathway, context.Context) {
-	return SetCheckpointWithPayloadSize(ctx, 0, edgeTags...)
+	return SetCheckpointWithParams(ctx, CheckpointParams{}, edgeTags...)
 }
 
-func SetCheckpointWithPayloadSize(ctx context.Context, payloadSize int64, edgeTags ...string) (Pathway, context.Context) {
+func SetCheckpointWithParams(ctx context.Context, params CheckpointParams, edgeTags ...string) (Pathway, context.Context) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
 	p, ok := PathwayFromContext(ctx)
 	if ok {
-		p = p.SetCheckpointWithPayloadSize(payloadSize, edgeTags...)
+		p = p.SetCheckpointWithParams(params, edgeTags...)
 	} else {
-		p = NewPathwayWithPayloadSize(payloadSize, edgeTags...)
+		p = NewPathwayWithParams(params, edgeTags...)
 	}
 	ctx = ContextWithPathway(ctx, p)
 	return p, ctx
+}
+
+// contained in all contexts.
+// This function should be used in fan-in situations. The current implementation keeps only 1 Pathway.
+// A future implementation could merge multiple Pathways together and put the resulting Pathway in the context.
+func MergeContexts(ctxs ...context.Context) context.Context {
+	if len(ctxs) == 0 {
+		return context.Background()
+	}
+	pathways := make([]Pathway, 0, len(ctxs))
+	for _, ctx := range ctxs {
+		if p, ok := PathwayFromContext(ctx); ok {
+			pathways = append(pathways, p)
+		}
+	}
+	if len(pathways) == 0 {
+		return ctxs[0]
+	}
+	return ContextWithPathway(ctxs[0], Merge(pathways))
 }
