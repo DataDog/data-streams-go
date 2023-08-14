@@ -132,7 +132,7 @@ func newConfig(opts ...StartOption) *config {
 		c.dogstatsdAddr = addr
 		client, err := statsd.New(addr, statsd.WithMaxMessagesPerPayload(40), statsd.WithTags(statsTags(c)))
 		if err != nil {
-			log.Printf("INFO: Runtime and health metrics disabled: %v", err)
+			log.Printf("ERROR: Runtime and health metrics disabled: %v", err)
 			c.statsd = &statsd.NoOpClient{}
 		} else {
 			c.statsd = client
