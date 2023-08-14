@@ -245,7 +245,7 @@ func (c *config) loadAgentFeatures() {
 		switch endpoint {
 		case "/v0.1/pipeline_stats":
 			c.features.PipelineStats = true
-			log.Printf("INFO: Enable pipeline stats.")
+			fmt.Println("INFO: Enable pipeline stats.")
 		}
 	}
 }
