@@ -36,9 +36,6 @@ type config struct {
 	// features holds the capabilities of the agent and determines some
 	// of the behaviour of the tracer.
 	features agentFeatures
-	// logToStdout reports whether we should log all traces to the standard
-	// output instead of using the agent. This is used in Lambda environments.
-	logToStdout bool
 	// logStartup, when true, causes various startup info to be written
 	// when the tracer starts.
 	logStartup bool
@@ -108,7 +105,7 @@ func newConfig(opts ...StartOption) *config {
 		}
 	}
 	fmt.Println("INFO: agent addr is", c.agentAddr)
-	c.loadAgentFeatures()
+	c.features = loadAgentFeatures(c.httpClient, c.agentAddr)
 	if c.statsd == nil {
 		// configure statsd client
 		addr := c.dogstatsdAddr
@@ -214,21 +211,15 @@ type agentFeatures struct {
 
 // loadAgentFeatures queries the trace-agent for its capabilities and updates
 // the tracer's behaviour.
-func (c *config) loadAgentFeatures() {
-	c.features = agentFeatures{}
-	if c.logToStdout {
-		// there is no agent; all features off
-		return
-	}
-	fmt.Println("INFO: agent addr is", c.agentAddr)
-	resp, err := c.httpClient.Get(fmt.Sprintf("http://%s/info", c.agentAddr))
+func loadAgentFeatures(client *http.Client, agentAddr string) (features agentFeatures) {
+	resp, err := client.Get(fmt.Sprintf("http://%s/info", agentAddr))
 	if err != nil {
 		log.Printf("ERROR: Loading features: %v", err)
-		return
+		return agentFeatures{}
 	}
 	if resp.StatusCode == http.StatusNotFound {
 		// agent is older than 7.28.0, features not discoverable
-		return
+		return agentFeatures{}
 	}
 	defer resp.Body.Close()
 	type infoResponse struct {
@@ -238,16 +229,17 @@ func (c *config) loadAgentFeatures() {
 	var info infoResponse
 	if err := json.NewDecoder(resp.Body).Decode(&info); err != nil {
 		log.Printf("ERROR: Decoding features: %v", err)
-		return
+		return agentFeatures{}
 	}
-	c.features.StatsdPort = info.StatsdPort
+	features.StatsdPort = info.StatsdPort
 	for _, endpoint := range info.Endpoints {
 		switch endpoint {
 		case "/v0.1/pipeline_stats":
-			c.features.PipelineStats = true
+			features.PipelineStats = true
 			log.Printf("INFO: Enable pipeline stats.")
 		}
 	}
+	return features
 }
 
 func statsTags(c *config) []string {

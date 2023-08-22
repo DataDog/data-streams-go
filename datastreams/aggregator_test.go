@@ -29,7 +29,7 @@ func buildSketch(values ...float64) []byte {
 }
 
 func TestAggregator(t *testing.T) {
-	p := newAggregator(nil, "env", "datacenter:us1.prod.dog", "service", "agent-addr", nil, "datadoghq.com", "key", true)
+	p := newAggregator(nil, "env", "datacenter:us1.prod.dog", "service", "agent-addr", nil, "datadoghq.com", "key", true, true)
 	tp1 := time.Now()
 	// Set tp2 to be some 40 seconds after the tp1, but also account for bucket alignments,
 	// otherwise the possible StatsPayload would change depending on when the test is run.
@@ -177,7 +177,7 @@ func TestAggregator(t *testing.T) {
 }
 
 func TestKafkaLag(t *testing.T) {
-	a := newAggregator(nil, "env", "datacenter:us1.prod.dog", "service", "agent-addr", nil, "datadoghq.com", "key", true)
+	a := newAggregator(nil, "env", "datacenter:us1.prod.dog", "service", "agent-addr", nil, "datadoghq.com", "key", true, true)
 	tp1 := time.Now()
 	a.addKafkaOffset(kafkaOffset{offset: 1, topic: "topic1", partition: 1, group: "group1", offsetType: commitOffset})
 	a.addKafkaOffset(kafkaOffset{offset: 10, topic: "topic2", partition: 1, group: "group1", offsetType: commitOffset})
