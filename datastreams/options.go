@@ -129,7 +129,7 @@ func newConfig(opts ...StartOption) *config {
 		c.dogstatsdAddr = addr
 		client, err := statsd.New(addr, statsd.WithMaxMessagesPerPayload(40), statsd.WithTags(statsTags(c)))
 		if err != nil {
-			log.Printf("INFO: Runtime and health metrics disabled: %v", err)
+			log.Printf("ERROR: Runtime and health metrics disabled: %v", err)
 			c.statsd = &statsd.NoOpClient{}
 		} else {
 			c.statsd = client
@@ -236,7 +236,7 @@ func loadAgentFeatures(client *http.Client, agentAddr string) (features agentFea
 		switch endpoint {
 		case "/v0.1/pipeline_stats":
 			features.PipelineStats = true
-			log.Printf("INFO: Enable pipeline stats.")
+			fmt.Println("INFO: Enable pipeline stats.")
 		}
 	}
 	return features
