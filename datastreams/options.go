@@ -235,7 +235,7 @@ func loadAgentFeatures(client *http.Client, agentAddr string) (features agentFea
 	for _, endpoint := range info.Endpoints {
 		switch endpoint {
 		case "/v0.1/pipeline_stats":
-			c.features.PipelineStats = true
+			features.PipelineStats = true
 			fmt.Println("INFO: Enable pipeline stats.")
 		}
 	}
