@@ -37,11 +37,11 @@ func getGlobalAggregator() *aggregator {
 // Start starts the data streams stats aggregator that will record pipeline stats and send them to the agent.
 func Start(opts ...StartOption) {
 	cfg := newConfig(opts...)
-	if !cfg.agentLess && !cfg.features.PipelineStats {
-		log.Print("ERROR: Agent does not support pipeline stats and pipeline stats aggregator launched in agent mode.")
-		return
+	supportDataStreamsStats := cfg.agentLess || cfg.features.PipelineStats
+	if !supportDataStreamsStats {
+		log.Print("WARNING: Agent does not support pipeline stats and pipeline stats aggregator launched in agent mode.")
 	}
-	p := newAggregator(cfg.statsd, cfg.env, cfg.primaryTag, cfg.service, cfg.agentAddr, cfg.httpClient, cfg.site, cfg.apiKey, cfg.agentLess)
+	p := newAggregator(cfg.statsd, cfg.env, cfg.primaryTag, cfg.service, cfg.agentAddr, cfg.httpClient, cfg.site, cfg.apiKey, cfg.agentLess, supportDataStreamsStats)
 	p.Start()
 	setGlobalAggregator(p)
 }

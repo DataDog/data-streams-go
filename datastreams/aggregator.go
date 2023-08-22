@@ -24,9 +24,10 @@ import (
 )
 
 const (
-	bucketDuration      = time.Second * 10
-	statsReportInterval = time.Second * 10
-	defaultServiceName  = "unnamed-go-service"
+	bucketDuration            = time.Second * 10
+	statsReportInterval       = time.Second * 10
+	loadAgentFeaturesInterval = time.Second * 30
+	defaultServiceName        = "unnamed-go-service"
 )
 
 var sketchMapping, _ = mapping.NewLogarithmicMapping(0.01)
@@ -163,10 +164,14 @@ type aggregator struct {
 	env                  string
 	primaryTag           string
 	service              string
+	disableStatsFlushing uint32
+	httpClient           *http.Client
+	agentAddr            string
+	agentLess            bool
 }
 
-func newAggregator(statsd statsd.ClientInterface, env, primaryTag, service, agentAddr string, httpClient *http.Client, site, apiKey string, agentLess bool) *aggregator {
-	return &aggregator{
+func newAggregator(statsd statsd.ClientInterface, env, primaryTag, service, agentAddr string, httpClient *http.Client, site, apiKey string, agentLess bool, agentSupportsDataStreams bool) *aggregator {
+	a := &aggregator{
 		tsTypeCurrentBuckets: make(map[int64]bucket),
 		tsTypeOriginBuckets:  make(map[int64]bucket),
 		in:                   make(chan statsPoint, 10000),
@@ -177,7 +182,12 @@ func newAggregator(statsd statsd.ClientInterface, env, primaryTag, service, agen
 		primaryTag:           primaryTag,
 		service:              service,
 		transport:            newHTTPTransport(agentAddr, site, apiKey, httpClient, agentLess),
+		httpClient:           httpClient,
+		agentAddr:            agentAddr,
+		agentLess:            agentLess,
 	}
+	a.updateAgentSupportsDataStreams(agentSupportsDataStreams)
+	return a
 }
 
 // alignTs returns the provided timestamp truncated to the bucket size.
@@ -271,7 +281,7 @@ func (a *aggregator) Start() {
 	}
 	a.stop = make(chan struct{})
 	a.flushRequest = make(chan chan<- struct{})
-	a.wg.Add(2)
+	a.wg.Add(3)
 	go func() {
 		defer a.wg.Done()
 		tick := time.NewTicker(statsReportInterval)
@@ -284,6 +294,13 @@ func (a *aggregator) Start() {
 		tick := time.NewTicker(bucketDuration)
 		defer tick.Stop()
 		a.run(tick.C)
+	}()
+	go func() {
+		defer a.wg.Done()
+		tick := time.NewTicker(loadAgentFeaturesInterval)
+		defer tick.Stop()
+		a.runLoadAgentFeatures(tick.C)
+
 	}()
 }
 
@@ -361,7 +378,33 @@ func (a *aggregator) flush(now time.Time) StatsPayload {
 	return sp
 }
 
+func (a *aggregator) runLoadAgentFeatures(tick <-chan time.Time) {
+	if a.agentLess {
+		return
+	}
+	for {
+		select {
+		case <-tick:
+			f := loadAgentFeatures(a.httpClient, a.agentAddr)
+			a.updateAgentSupportsDataStreams(f.PipelineStats)
+		case <-a.stop:
+			return
+		}
+	}
+}
+
+func (a *aggregator) updateAgentSupportsDataStreams(agentSupportsDataStreams bool) {
+	var disableStatsFlushing uint32
+	if !agentSupportsDataStreams {
+		disableStatsFlushing = 1
+	}
+	atomic.StoreUint32(&a.disableStatsFlushing, disableStatsFlushing)
+}
+
 func (a *aggregator) sendToAgent(payload StatsPayload) {
+	if atomic.LoadUint32(&a.disableStatsFlushing) != 0 {
+		return
+	}
 	atomic.AddInt64(&a.stats.flushedPayloads, 1)
 	atomic.AddInt64(&a.stats.flushedBuckets, int64(len(payload.Stats)))
 	if err := a.transport.sendPipelineStats(&payload); err != nil {
