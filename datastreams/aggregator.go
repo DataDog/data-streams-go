@@ -10,6 +10,7 @@ import (
 	"log"
 	"math"
 	"net/http"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -28,6 +29,7 @@ const (
 	statsReportInterval       = time.Second * 10
 	loadAgentFeaturesInterval = time.Second * 30
 	defaultServiceName        = "unnamed-go-service"
+	maxHashCacheSize          = 1000
 )
 
 var sketchMapping, _ = mapping.NewLogarithmicMapping(0.01)
@@ -163,58 +165,59 @@ type kafkaOffset struct {
 	timestamp  int64
 }
 
-type hashKey struct {
-	service    string
-	env        string
-	primaryTag string
-	edgeTags   string
-	parentHash uint64
-}
-
 type hashCache struct {
 	mu sync.RWMutex
-	m  map[hashKey]uint64
+	m  map[string]uint64
 }
 
-func getHashKey(service, env, primaryTag string, edgeTags []string, parentHash uint64) hashKey {
+func getHashKey(edgeTags []string, parentHash uint64) string {
+	var s strings.Builder
 	l := 0
 	for _, t := range edgeTags {
 		l += len(t)
 	}
-	s := make([]byte, 0, l)
+	l += 8
+	s.Grow(l)
 	for _, t := range edgeTags {
-		s = append(s, t...)
+		s.WriteString(t)
 	}
-	return hashKey{
-		service:    service,
-		env:        env,
-		primaryTag: primaryTag,
-		edgeTags:   string(s),
-		parentHash: parentHash,
-	}
+	s.WriteByte(byte(parentHash))
+	s.WriteByte(byte(parentHash >> 8))
+	s.WriteByte(byte(parentHash >> 16))
+	s.WriteByte(byte(parentHash >> 24))
+	s.WriteByte(byte(parentHash >> 32))
+	s.WriteByte(byte(parentHash >> 40))
+	s.WriteByte(byte(parentHash >> 48))
+	s.WriteByte(byte(parentHash >> 56))
+	return s.String()
 }
 
-func (c *hashCache) computeAndGet(key hashKey, edgeTags []string) uint64 {
-	hash := pathwayHash(nodeHash(key.service, key.env, key.primaryTag, edgeTags), key.parentHash)
+func (c *hashCache) computeAndGet(key string, parentHash uint64, service, env, primaryTag string, edgeTags []string) uint64 {
+	hash := pathwayHash(nodeHash(service, env, primaryTag, edgeTags), parentHash)
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	if len(c.m) >= maxHashCacheSize {
+		// high cardinality of hashes shouldn't happen in practice, due to a limited amount of topics consumed
+		// by each service.
+		c.m = make(map[string]uint64)
+	}
 	c.m[key] = hash
 	return hash
 }
 
 func (c *hashCache) get(service, env, primaryTag string, edgeTags []string, parentHash uint64) uint64 {
-	key := getHashKey(service, env, primaryTag, edgeTags, parentHash)
+	key := getHashKey(edgeTags, parentHash)
 	c.mu.RLock()
 	if hash, ok := c.m[key]; ok {
 		c.mu.RUnlock()
 		return hash
 	}
 	c.mu.RUnlock()
-	return c.computeAndGet(key, edgeTags)
+	return c.computeAndGet(key, parentHash, service, env, primaryTag, edgeTags)
 }
 
 func newHashCache() *hashCache {
-	return &hashCache{m: make(map[hashKey]uint64)}
+	return &hashCache{m: make(map[string]uint64)}
 }
 
 type aggregator struct {
@@ -298,9 +301,6 @@ func (a *aggregator) addToBuckets(point statsPoint, btime int64, buckets map[int
 func (a *aggregator) add(point statsPoint) {
 	currentBucketTime := alignTs(point.timestamp, bucketDuration.Nanoseconds())
 	a.addToBuckets(point, currentBucketTime, a.tsTypeCurrentBuckets)
-	originTimestamp := point.timestamp - point.pathwayLatency
-	originBucketTime := alignTs(originTimestamp, bucketDuration.Nanoseconds())
-	a.addToBuckets(point, originBucketTime, a.tsTypeOriginBuckets)
 }
 
 func (a *aggregator) addKafkaOffset(o kafkaOffset) {
@@ -361,7 +361,7 @@ func (a *aggregator) Start() {
 		defer a.wg.Done()
 		tick := time.NewTicker(statsReportInterval)
 		defer tick.Stop()
-		// a.runStatsReporter(tick.C)
+		a.runStatsReporter(tick.C)
 
 	}()
 	go func() {
