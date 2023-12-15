@@ -30,8 +30,8 @@ func TestContext(t *testing.T) {
 		pathway, ctx := SetCheckpoint(ctx, "type:internal")
 		pathway, _ = SetCheckpoint(ctx, "type:kafka")
 
-		statsPt1 := aggregator.in.pop()
-		statsPt2 := aggregator.in.pop()
+		statsPt1 := aggregator.in.pop().point
+		statsPt2 := aggregator.in.pop().point
 
 		assert.Equal(t, []string{"type:internal"}, statsPt1.edgeTags)
 		assert.Equal(t, hash1, statsPt1.hash)

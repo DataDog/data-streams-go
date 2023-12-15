@@ -129,7 +129,7 @@ func (p Pathway) setCheckpoint(now time.Time, params CheckpointParams, edgeTags 
 		edgeStart:    now,
 	}
 	if aggr != nil {
-		aggr.in.push(&statsPoint{
+		aggr.in.push(&aggregatorInput{point: statsPoint{
 			edgeTags:       edgeTags,
 			parentHash:     p.hash,
 			hash:           child.hash,
@@ -137,7 +137,7 @@ func (p Pathway) setCheckpoint(now time.Time, params CheckpointParams, edgeTags 
 			pathwayLatency: now.Sub(p.pathwayStart).Nanoseconds(),
 			edgeLatency:    now.Sub(p.edgeStart).Nanoseconds(),
 			payloadSize:    params.PayloadSize,
-		})
+		}})
 	}
 	return child
 }

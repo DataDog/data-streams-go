@@ -38,7 +38,7 @@ func TestAggregator(t *testing.T) {
 	// otherwise the possible StatsPayload would change depending on when the test is run.
 	tp2 := time.Unix(0, alignTs(tp1.Add(time.Second*40).UnixNano(), bucketDuration.Nanoseconds())).Add(6 * time.Second)
 
-	p.add(&statsPoint{
+	p.add(statsPoint{
 		edgeTags:       []string{"type:edge-1"},
 		hash:           2,
 		parentHash:     1,
@@ -47,7 +47,7 @@ func TestAggregator(t *testing.T) {
 		edgeLatency:    time.Second.Nanoseconds(),
 		payloadSize:    1,
 	})
-	p.add(&statsPoint{
+	p.add(statsPoint{
 		edgeTags:       []string{"type:edge-1"},
 		hash:           2,
 		parentHash:     1,
@@ -56,7 +56,7 @@ func TestAggregator(t *testing.T) {
 		edgeLatency:    (2 * time.Second).Nanoseconds(),
 		payloadSize:    2,
 	})
-	p.add(&statsPoint{
+	p.add(statsPoint{
 		edgeTags:       []string{"type:edge-1"},
 		hash:           3,
 		parentHash:     1,
@@ -65,7 +65,7 @@ func TestAggregator(t *testing.T) {
 		edgeLatency:    (2 * time.Second).Nanoseconds(),
 		payloadSize:    2,
 	})
-	p.add(&statsPoint{
+	p.add(statsPoint{
 		edgeTags:       []string{"type:edge-1"},
 		hash:           2,
 		parentHash:     1,

@@ -10,7 +10,6 @@ import (
 	"log"
 	"math"
 	"net/http"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -33,6 +32,20 @@ const (
 
 var sketchMapping, _ = mapping.NewLogarithmicMapping(0.01)
 
+type pointType int
+
+const (
+	pointTypeStats pointType = iota
+	pointTypeKafkaOffset
+)
+
+type aggregatorInput struct {
+	point       statsPoint
+	kafkaOffset kafkaOffset
+	typ         pointType
+	queuePos    int64
+}
+
 type statsPoint struct {
 	edgeTags       []string
 	hash           uint64
@@ -41,7 +54,6 @@ type statsPoint struct {
 	pathwayLatency int64
 	edgeLatency    int64
 	payloadSize    int64
-	queuePos       int64
 }
 
 type statsGroup struct {
@@ -165,11 +177,19 @@ type hashCache struct {
 }
 
 func getHashKey(service, env, primaryTag string, edgeTags []string, parentHash uint64) hashKey {
+	l := 0
+	for _, t := range edgeTags {
+		l += len(t)
+	}
+	s := make([]byte, 0, l)
+	for _, t := range edgeTags {
+		s = append(s, t...)
+	}
 	return hashKey{
 		service:    service,
 		env:        env,
 		primaryTag: primaryTag,
-		edgeTags:   strings.Join(edgeTags, ""),
+		edgeTags:   string(s),
 		parentHash: parentHash,
 	}
 }
@@ -200,7 +220,6 @@ func newHashCache() *hashCache {
 type aggregator struct {
 	in                   *fastQueue
 	hashCache            *hashCache
-	inKafka              chan kafkaOffset
 	tsTypeCurrentBuckets map[int64]bucket
 	tsTypeOriginBuckets  map[int64]bucket
 	wg                   sync.WaitGroup
@@ -225,7 +244,6 @@ func newAggregator(statsd statsd.ClientInterface, env, primaryTag, service, agen
 		hashCache:            newHashCache(),
 		tsTypeCurrentBuckets: make(map[int64]bucket),
 		tsTypeOriginBuckets:  make(map[int64]bucket),
-		inKafka:              make(chan kafkaOffset, 10000),
 		stopped:              1,
 		statsd:               statsd,
 		env:                  env,
@@ -252,7 +270,7 @@ func (a *aggregator) getBucket(btime int64, buckets map[int64]bucket) bucket {
 	}
 	return b
 }
-func (a *aggregator) addToBuckets(point *statsPoint, btime int64, buckets map[int64]bucket) {
+func (a *aggregator) addToBuckets(point statsPoint, btime int64, buckets map[int64]bucket) {
 	b := a.getBucket(btime, buckets)
 	group, ok := b.points[point.hash]
 	if !ok {
@@ -277,7 +295,7 @@ func (a *aggregator) addToBuckets(point *statsPoint, btime int64, buckets map[in
 	}
 }
 
-func (a *aggregator) add(point *statsPoint) {
+func (a *aggregator) add(point statsPoint) {
 	currentBucketTime := alignTs(point.timestamp, bucketDuration.Nanoseconds())
 	a.addToBuckets(point, currentBucketTime, a.tsTypeCurrentBuckets)
 	originTimestamp := point.timestamp - point.pathwayLatency
@@ -305,8 +323,6 @@ func (a *aggregator) addKafkaOffset(o kafkaOffset) {
 func (a *aggregator) run(tick <-chan time.Time) {
 	for {
 		select {
-		case o := <-a.inKafka:
-			a.addKafkaOffset(o)
 		case now := <-tick:
 			a.sendToAgent(a.flush(now))
 		case done := <-a.flushRequest:
@@ -323,7 +339,11 @@ func (a *aggregator) run(tick <-chan time.Time) {
 				continue
 			}
 			atomic.AddInt64(&a.stats.payloadsIn, 1)
-			a.add(s)
+			if s.typ == pointTypeStats {
+				a.add(s.point)
+			} else if s.typ == pointTypeKafkaOffset {
+				a.addKafkaOffset(s.kafkaOffset)
+			}
 		}
 	}
 }

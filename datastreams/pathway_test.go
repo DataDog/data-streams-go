@@ -86,9 +86,9 @@ func TestPathway(t *testing.T) {
 		assert.Equal(t, hash2, pathwayWith1EdgeTag.hash)
 		assert.Equal(t, hash3, pathwayWith2EdgeTags.hash)
 
-		var statsPointWithNoEdgeTags statsPoint = *aggregator.in.pop()
-		var statsPointWith1EdgeTag statsPoint = *aggregator.in.pop()
-		var statsPointWith2EdgeTags statsPoint = *aggregator.in.pop()
+		var statsPointWithNoEdgeTags statsPoint = aggregator.in.pop().point
+		var statsPointWith1EdgeTag statsPoint = aggregator.in.pop().point
+		var statsPointWith2EdgeTags statsPoint = aggregator.in.pop().point
 		assert.Equal(t, hash1, statsPointWithNoEdgeTags.hash)
 		assert.Equal(t, []string(nil), statsPointWithNoEdgeTags.edgeTags)
 		assert.Equal(t, hash2, statsPointWith1EdgeTag.hash)
