@@ -17,7 +17,7 @@ func TestPathway(t *testing.T) {
 	t.Run("test SetCheckpoint", func(t *testing.T) {
 		aggregator := aggregator{
 			stopped:    1,
-			in:         make(chan statsPoint, 10),
+			in:         newFastQueue(),
 			service:    "service-1",
 			env:        "env",
 			primaryTag: "d:1",
@@ -45,7 +45,7 @@ func TestPathway(t *testing.T) {
 			timestamp:      start.UnixNano(),
 			pathwayLatency: 0,
 			edgeLatency:    0,
-		}, <-aggregator.in)
+		}, aggregator.in.pop())
 		assert.Equal(t, statsPoint{
 			edgeTags:       []string{"edge-1"},
 			hash:           hash2,
@@ -53,7 +53,7 @@ func TestPathway(t *testing.T) {
 			timestamp:      middle.UnixNano(),
 			pathwayLatency: middle.Sub(start).Nanoseconds(),
 			edgeLatency:    middle.Sub(start).Nanoseconds(),
-		}, <-aggregator.in)
+		}, aggregator.in.pop())
 		assert.Equal(t, statsPoint{
 			edgeTags:       []string{"edge-2"},
 			hash:           hash3,
@@ -61,13 +61,13 @@ func TestPathway(t *testing.T) {
 			timestamp:      end.UnixNano(),
 			pathwayLatency: end.Sub(start).Nanoseconds(),
 			edgeLatency:    end.Sub(middle).Nanoseconds(),
-		}, <-aggregator.in)
+		}, aggregator.in.pop())
 	})
 
 	t.Run("test NewPathway", func(t *testing.T) {
 		aggregator := aggregator{
 			stopped:    1,
-			in:         make(chan statsPoint, 10),
+			in:         newFastQueue(),
 			service:    "service-1",
 			env:        "env",
 			primaryTag: "d:1",
@@ -86,9 +86,9 @@ func TestPathway(t *testing.T) {
 		assert.Equal(t, hash2, pathwayWith1EdgeTag.hash)
 		assert.Equal(t, hash3, pathwayWith2EdgeTags.hash)
 
-		var statsPointWithNoEdgeTags statsPoint = <-aggregator.in
-		var statsPointWith1EdgeTag statsPoint = <-aggregator.in
-		var statsPointWith2EdgeTags statsPoint = <-aggregator.in
+		var statsPointWithNoEdgeTags statsPoint = *aggregator.in.pop()
+		var statsPointWith1EdgeTag statsPoint = *aggregator.in.pop()
+		var statsPointWith2EdgeTags statsPoint = *aggregator.in.pop()
 		assert.Equal(t, hash1, statsPointWithNoEdgeTags.hash)
 		assert.Equal(t, []string(nil), statsPointWithNoEdgeTags.edgeTags)
 		assert.Equal(t, hash2, statsPointWith1EdgeTag.hash)

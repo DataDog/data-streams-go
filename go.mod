@@ -1,6 +1,6 @@
 module github.com/DataDog/data-streams-go
 
-go 1.17
+go 1.18
 
 replace github.com/DataDog/data-streams-go/integrations/kafka => ./integrations/kafka
 

@@ -6,7 +6,10 @@
 package datastreams
 
 import (
+	"context"
 	"github.com/DataDog/data-streams-go/datastreams/version"
+	"github.com/DataDog/datadog-go/v5/statsd"
+	"net/http"
 	"sort"
 	"strings"
 	"testing"
@@ -35,7 +38,7 @@ func TestAggregator(t *testing.T) {
 	// otherwise the possible StatsPayload would change depending on when the test is run.
 	tp2 := time.Unix(0, alignTs(tp1.Add(time.Second*40).UnixNano(), bucketDuration.Nanoseconds())).Add(6 * time.Second)
 
-	p.add(statsPoint{
+	p.add(&statsPoint{
 		edgeTags:       []string{"type:edge-1"},
 		hash:           2,
 		parentHash:     1,
@@ -44,7 +47,7 @@ func TestAggregator(t *testing.T) {
 		edgeLatency:    time.Second.Nanoseconds(),
 		payloadSize:    1,
 	})
-	p.add(statsPoint{
+	p.add(&statsPoint{
 		edgeTags:       []string{"type:edge-1"},
 		hash:           2,
 		parentHash:     1,
@@ -53,7 +56,7 @@ func TestAggregator(t *testing.T) {
 		edgeLatency:    (2 * time.Second).Nanoseconds(),
 		payloadSize:    2,
 	})
-	p.add(statsPoint{
+	p.add(&statsPoint{
 		edgeTags:       []string{"type:edge-1"},
 		hash:           3,
 		parentHash:     1,
@@ -62,7 +65,7 @@ func TestAggregator(t *testing.T) {
 		edgeLatency:    (2 * time.Second).Nanoseconds(),
 		payloadSize:    2,
 	})
-	p.add(statsPoint{
+	p.add(&statsPoint{
 		edgeTags:       []string{"type:edge-1"},
 		hash:           2,
 		parentHash:     1,
@@ -202,4 +205,33 @@ func TestKafkaLag(t *testing.T) {
 		},
 	}
 	assert.Equal(t, expectedBacklogs, p.Stats[0].Backlogs)
+}
+
+type NoOpTransport struct{}
+
+// RoundTrip does nothing and returns a dummy response.
+func (t *NoOpTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	// You can customize the dummy response if needed.
+	return &http.Response{
+		StatusCode:    200,
+		Proto:         "HTTP/1.1",
+		ProtoMajor:    1,
+		ProtoMinor:    1,
+		Request:       req,
+		ContentLength: -1,
+		Body:          http.NoBody,
+	}, nil
+}
+
+func BenchmarkSetCheckpoint(b *testing.B) {
+	client := &http.Client{
+		Transport: &NoOpTransport{},
+	}
+	p := newAggregator(&statsd.NoOpClient{}, "env", "datacenter:us1.prod.dog", "service", "agent-addr", client, "datadoghq.com", "key", true, true)
+	p.Start()
+	setGlobalAggregator(p)
+	for i := 0; i < b.N; i++ {
+		SetCheckpointWithParams(context.Background(), CheckpointParams{PayloadSize: 1000}, "type:edge-1", "direction:in", "type:kafka", "topic:topic1", "group:group1")
+	}
+	p.Stop()
 }
