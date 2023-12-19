@@ -7,6 +7,7 @@ package datastreams
 
 import (
 	"context"
+	"encoding/binary"
 	"github.com/DataDog/data-streams-go/datastreams/version"
 	"github.com/DataDog/datadog-go/v5/statsd"
 	"net/http"
@@ -234,4 +235,12 @@ func BenchmarkSetCheckpoint(b *testing.B) {
 		SetCheckpointWithParams(context.Background(), CheckpointParams{PayloadSize: 1000}, "type:edge-1", "direction:in", "type:kafka", "topic:topic1", "group:group1")
 	}
 	p.Stop()
+}
+
+func TestGetHashKey(t *testing.T) {
+	parentHash := uint64(87234)
+	key := getHashKey([]string{"type:kafka", "topic:topic1", "group:group1"}, parentHash)
+	hash := make([]byte, 8)
+	binary.LittleEndian.PutUint64(hash, parentHash)
+	assert.Equal(t, "type:kafkatopic:topic1group:group1"+string(hash), key)
 }
