@@ -129,7 +129,7 @@ func (p Pathway) setCheckpoint(now time.Time, params CheckpointParams, edgeTags 
 		edgeStart:    now,
 	}
 	if aggr != nil {
-		aggr.in.push(&aggregatorInput{point: statsPoint{
+		aggr.in.push(&aggregatorInput{typ: pointTypeStats, point: statsPoint{
 			edgeTags:       edgeTags,
 			parentHash:     p.hash,
 			hash:           child.hash,

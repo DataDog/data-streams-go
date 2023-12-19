@@ -6,7 +6,7 @@ import (
 
 func TrackKafkaCommitOffset(group string, topic string, partition int32, offset int64) {
 	if aggregator := getGlobalAggregator(); aggregator != nil {
-		aggregator.in.push(&aggregatorInput{kafkaOffset: kafkaOffset{
+		aggregator.in.push(&aggregatorInput{typ: pointTypeKafkaOffset, kafkaOffset: kafkaOffset{
 			offset:     offset,
 			group:      group,
 			topic:      topic,
@@ -19,7 +19,7 @@ func TrackKafkaCommitOffset(group string, topic string, partition int32, offset 
 
 func TrackKafkaProduce(topic string, partition int32, offset int64) {
 	if aggregator := getGlobalAggregator(); aggregator != nil {
-		aggregator.in.push(&aggregatorInput{kafkaOffset: kafkaOffset{
+		aggregator.in.push(&aggregatorInput{typ: pointTypeKafkaOffset, kafkaOffset: kafkaOffset{
 			offset:     offset,
 			topic:      topic,
 			partition:  partition,
