@@ -10,6 +10,7 @@ import (
 	"log"
 	"math"
 	"net/http"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -28,9 +29,24 @@ const (
 	statsReportInterval       = time.Second * 10
 	loadAgentFeaturesInterval = time.Second * 30
 	defaultServiceName        = "unnamed-go-service"
+	maxHashCacheSize          = 1000
 )
 
 var sketchMapping, _ = mapping.NewLogarithmicMapping(0.01)
+
+type pointType int
+
+const (
+	pointTypeStats pointType = iota
+	pointTypeKafkaOffset
+)
+
+type aggregatorInput struct {
+	point       statsPoint
+	kafkaOffset kafkaOffset
+	typ         pointType
+	queuePos    int64
+}
 
 type statsPoint struct {
 	edgeTags       []string
@@ -149,9 +165,64 @@ type kafkaOffset struct {
 	timestamp  int64
 }
 
+type hashCache struct {
+	mu sync.RWMutex
+	m  map[string]uint64
+}
+
+func getHashKey(edgeTags []string, parentHash uint64) string {
+	var s strings.Builder
+	l := 0
+	for _, t := range edgeTags {
+		l += len(t)
+	}
+	l += 8
+	s.Grow(l)
+	for _, t := range edgeTags {
+		s.WriteString(t)
+	}
+	s.WriteByte(byte(parentHash))
+	s.WriteByte(byte(parentHash >> 8))
+	s.WriteByte(byte(parentHash >> 16))
+	s.WriteByte(byte(parentHash >> 24))
+	s.WriteByte(byte(parentHash >> 32))
+	s.WriteByte(byte(parentHash >> 40))
+	s.WriteByte(byte(parentHash >> 48))
+	s.WriteByte(byte(parentHash >> 56))
+	return s.String()
+}
+
+func (c *hashCache) computeAndGet(key string, parentHash uint64, service, env, primaryTag string, edgeTags []string) uint64 {
+	hash := pathwayHash(nodeHash(service, env, primaryTag, edgeTags), parentHash)
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if len(c.m) >= maxHashCacheSize {
+		// high cardinality of hashes shouldn't happen in practice, due to a limited amount of topics consumed
+		// by each service.
+		c.m = make(map[string]uint64)
+	}
+	c.m[key] = hash
+	return hash
+}
+
+func (c *hashCache) get(service, env, primaryTag string, edgeTags []string, parentHash uint64) uint64 {
+	key := getHashKey(edgeTags, parentHash)
+	c.mu.RLock()
+	if hash, ok := c.m[key]; ok {
+		c.mu.RUnlock()
+		return hash
+	}
+	c.mu.RUnlock()
+	return c.computeAndGet(key, parentHash, service, env, primaryTag, edgeTags)
+}
+
+func newHashCache() *hashCache {
+	return &hashCache{m: make(map[string]uint64)}
+}
+
 type aggregator struct {
-	in                   chan statsPoint
-	inKafka              chan kafkaOffset
+	in                   *fastQueue
+	hashCache            *hashCache
 	tsTypeCurrentBuckets map[int64]bucket
 	tsTypeOriginBuckets  map[int64]bucket
 	wg                   sync.WaitGroup
@@ -172,10 +243,10 @@ type aggregator struct {
 
 func newAggregator(statsd statsd.ClientInterface, env, primaryTag, service, agentAddr string, httpClient *http.Client, site, apiKey string, agentLess bool, agentSupportsDataStreams bool) *aggregator {
 	a := &aggregator{
+		in:                   newFastQueue(),
+		hashCache:            newHashCache(),
 		tsTypeCurrentBuckets: make(map[int64]bucket),
 		tsTypeOriginBuckets:  make(map[int64]bucket),
-		in:                   make(chan statsPoint, 10000),
-		inKafka:              make(chan kafkaOffset, 10000),
 		stopped:              1,
 		statsd:               statsd,
 		env:                  env,
@@ -230,9 +301,6 @@ func (a *aggregator) addToBuckets(point statsPoint, btime int64, buckets map[int
 func (a *aggregator) add(point statsPoint) {
 	currentBucketTime := alignTs(point.timestamp, bucketDuration.Nanoseconds())
 	a.addToBuckets(point, currentBucketTime, a.tsTypeCurrentBuckets)
-	originTimestamp := point.timestamp - point.pathwayLatency
-	originBucketTime := alignTs(originTimestamp, bucketDuration.Nanoseconds())
-	a.addToBuckets(point, originBucketTime, a.tsTypeOriginBuckets)
 }
 
 func (a *aggregator) addKafkaOffset(o kafkaOffset) {
@@ -255,11 +323,6 @@ func (a *aggregator) addKafkaOffset(o kafkaOffset) {
 func (a *aggregator) run(tick <-chan time.Time) {
 	for {
 		select {
-		case s := <-a.in:
-			atomic.AddInt64(&a.stats.payloadsIn, 1)
-			a.add(s)
-		case o := <-a.inKafka:
-			a.addKafkaOffset(o)
 		case now := <-tick:
 			a.sendToAgent(a.flush(now))
 		case done := <-a.flushRequest:
@@ -269,6 +332,18 @@ func (a *aggregator) run(tick <-chan time.Time) {
 			// drop in flight payloads on the input channel
 			a.sendToAgent(a.flush(time.Now().Add(bucketDuration * 10)))
 			return
+		default:
+			s := a.in.pop()
+			if s == nil {
+				time.Sleep(time.Millisecond * 10)
+				continue
+			}
+			atomic.AddInt64(&a.stats.payloadsIn, 1)
+			if s.typ == pointTypeStats {
+				a.add(s.point)
+			} else if s.typ == pointTypeKafkaOffset {
+				a.addKafkaOffset(s.kafkaOffset)
+			}
 		}
 	}
 }

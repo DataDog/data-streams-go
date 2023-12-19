@@ -16,7 +16,7 @@ func TestContext(t *testing.T) {
 	t.Run("SetCheckpoint", func(t *testing.T) {
 		aggregator := aggregator{
 			stopped:    1,
-			in:         make(chan statsPoint, 10),
+			in:         newFastQueue(),
 			service:    "service-1",
 			env:        "env",
 			primaryTag: "d:1",
@@ -30,8 +30,8 @@ func TestContext(t *testing.T) {
 		pathway, ctx := SetCheckpoint(ctx, "type:internal")
 		pathway, _ = SetCheckpoint(ctx, "type:kafka")
 
-		statsPt1 := <-aggregator.in
-		statsPt2 := <-aggregator.in
+		statsPt1 := aggregator.in.pop().point
+		statsPt2 := aggregator.in.pop().point
 
 		assert.Equal(t, []string{"type:internal"}, statsPt1.edgeTags)
 		assert.Equal(t, hash1, statsPt1.hash)

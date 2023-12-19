@@ -11,7 +11,6 @@ import (
 	"math/rand"
 	"sort"
 	"strings"
-	"sync/atomic"
 	"time"
 )
 
@@ -117,19 +116,20 @@ func (p Pathway) setCheckpoint(now time.Time, params CheckpointParams, edgeTags 
 	service := defaultServiceName
 	primaryTag := ""
 	env := ""
+	var hash uint64
 	if aggr != nil {
 		service = aggr.service
 		primaryTag = aggr.primaryTag
 		env = aggr.env
+		hash = aggr.hashCache.get(service, env, primaryTag, edgeTags, p.hash)
 	}
 	child := Pathway{
-		hash:         pathwayHash(nodeHash(service, env, primaryTag, edgeTags), p.hash),
+		hash:         hash,
 		pathwayStart: p.pathwayStart,
 		edgeStart:    now,
 	}
-	if aggregator := getGlobalAggregator(); aggregator != nil {
-		select {
-		case aggregator.in <- statsPoint{
+	if aggr != nil {
+		aggr.in.push(&aggregatorInput{point: statsPoint{
 			edgeTags:       edgeTags,
 			parentHash:     p.hash,
 			hash:           child.hash,
@@ -137,10 +137,7 @@ func (p Pathway) setCheckpoint(now time.Time, params CheckpointParams, edgeTags 
 			pathwayLatency: now.Sub(p.pathwayStart).Nanoseconds(),
 			edgeLatency:    now.Sub(p.edgeStart).Nanoseconds(),
 			payloadSize:    params.PayloadSize,
-		}:
-		default:
-			atomic.AddInt64(&aggregator.stats.dropped, 1)
-		}
+		}})
 	}
 	return child
 }

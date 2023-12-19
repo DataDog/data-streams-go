@@ -6,7 +6,11 @@
 package datastreams
 
 import (
+	"context"
+	"encoding/binary"
 	"github.com/DataDog/data-streams-go/datastreams/version"
+	"github.com/DataDog/datadog-go/v5/statsd"
+	"net/http"
 	"sort"
 	"strings"
 	"testing"
@@ -202,4 +206,41 @@ func TestKafkaLag(t *testing.T) {
 		},
 	}
 	assert.Equal(t, expectedBacklogs, p.Stats[0].Backlogs)
+}
+
+type NoOpTransport struct{}
+
+// RoundTrip does nothing and returns a dummy response.
+func (t *NoOpTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	// You can customize the dummy response if needed.
+	return &http.Response{
+		StatusCode:    200,
+		Proto:         "HTTP/1.1",
+		ProtoMajor:    1,
+		ProtoMinor:    1,
+		Request:       req,
+		ContentLength: -1,
+		Body:          http.NoBody,
+	}, nil
+}
+
+func BenchmarkSetCheckpoint(b *testing.B) {
+	client := &http.Client{
+		Transport: &NoOpTransport{},
+	}
+	p := newAggregator(&statsd.NoOpClient{}, "env", "datacenter:us1.prod.dog", "service", "agent-addr", client, "datadoghq.com", "key", true, true)
+	p.Start()
+	setGlobalAggregator(p)
+	for i := 0; i < b.N; i++ {
+		SetCheckpointWithParams(context.Background(), CheckpointParams{PayloadSize: 1000}, "type:edge-1", "direction:in", "type:kafka", "topic:topic1", "group:group1")
+	}
+	p.Stop()
+}
+
+func TestGetHashKey(t *testing.T) {
+	parentHash := uint64(87234)
+	key := getHashKey([]string{"type:kafka", "topic:topic1", "group:group1"}, parentHash)
+	hash := make([]byte, 8)
+	binary.LittleEndian.PutUint64(hash, parentHash)
+	assert.Equal(t, "type:kafkatopic:topic1group:group1"+string(hash), key)
 }
